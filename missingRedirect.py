@@ -48,6 +48,9 @@ def main():
     with open(time_file,'r') as file_handle:
         done_until_str = file_handle.read()
     
+    old_time_str = (datetime.strptime(done_until_str, "%Y%m%d%H%M%S") \
+        + timedelta(seconds=1)).strftime("%Y%m%d%H%M%S")
+    
     now = datetime.now()
     new_time = now - timedelta(minutes=10)
     new_time_str = new_time.strftime("%Y%m%d%H%M%S")

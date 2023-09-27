@@ -28,7 +28,7 @@ def clearItem(fromId):
         'action': 'query',
         'meta': 'tokens'
     }
-    req = api.Request(site=site, **params)
+    req = api.Request(site=site, parameters=params)
     data = req.submit()
     #clear item
     params2 = {
@@ -40,7 +40,7 @@ def clearItem(fromId):
         'summary': 'clearing item to prepare for redirect',
         'token': data['query']['tokens']['csrftoken']
     }
-    req2 = api.Request(site=site,**params2)
+    req2 = api.Request(site=site, parameters=params2)
     data2 = req2.submit()
 
 def main():
@@ -66,7 +66,7 @@ def main():
             'rctoponly':1,
             'rccontinue':rccontinue
         }
-        req = api.Request(site=site, **params)
+        req = api.Request(site=site, parameters=params)
         data = req.submit()
         for m in data['query']['recentchanges']:
             timestamp = m['timestamp']

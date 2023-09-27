@@ -168,7 +168,7 @@ def oneConstraint(p, datatype, constraint):
         title = '<span id="Qualifier"></span>\n== "Qualifier" violations =='
 
     elif constrainttype == 'Q21528959': # Constraint:Source only
-        query = 'SELECT DISTINCT ?item {{ {{ ?item wdt:{p} ?value . }} UNION { ?statement1 pq:{p} ?value . ?item ?p1 ?statement1 }} }}'.format(p=p)
+        query = 'SELECT DISTINCT ?item {{ {{ ?item wdt:{p} ?value . }} UNION {{ ?statement1 pq:{p} ?value . ?item ?p1 ?statement1 }} }}'.format(p=p)
         title = '<span id="Source only"></span>\n== "Source only" violations =='
 
     elif constrainttype == 'Q21502404': # Constraint:Format

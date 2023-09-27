@@ -86,10 +86,12 @@ def rb(term): #remove brackets with the word disambiguation page inside
     return term
 
 def isDisam(item):
+    dab_items = [ 'Q4167410', 'Q15407973', 'Q22808320', 'Q61996773', 'Q66480449' ]
+
     if 'P31' not in item.claims:
         return False
     for claim in item.claims['P31']:
-        if claim.getTarget().getID() == 'Q4167410':
+        if claim.getTarget().getID() in dab_items:
             return True
     return False
 

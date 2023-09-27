@@ -9,7 +9,7 @@ import re
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
 
-db = MySQLdb.connect(host='wikidatawiki.labsdb', db='wikidatawiki_p', read_default_file='~/replica.my.cnf')
+db = MySQLdb.connect(host='wikidatawiki.labsdb', db='wikidatawiki_p', read_default_file='replica.my.cnf')
 
 cur = db.cursor()
 cur.execute('SELECT rc_title, comment_text FROM recentchanges JOIN comment_recentchanges ON rc_comment_id=comment_id WHERE rc_namespace=0 AND HEX(comment_text) LIKE "%E2808F";')

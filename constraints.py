@@ -287,10 +287,10 @@ def main():
                 continue
             cpage = pywikibot.Page(site, 'Wikidata:Database reports/Constraint violations/'+p)
             if cpage.exists():
-                lastedit = cpage.getVersionHistory()[0]
-                if (datetime.datetime.now()-lastedit[1]).days < 1:
+                lastedit = list(cpage.revisions(total=1))[0]
+                if (datetime.datetime.now()-lastedit['timestamp']).days < 1:
                     continue
-                if lastedit[2] in ['KrBot', 'KrBot2'] and 'ERROR:' not in cpage.text:
+                if lastedit['user'] in ['KrBot', 'KrBot2'] and 'ERROR:' not in cpage.text:
                     continue
             report = u''
             for co in ppage.claims['P2302']:

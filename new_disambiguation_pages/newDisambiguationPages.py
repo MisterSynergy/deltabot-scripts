@@ -5,7 +5,7 @@
 from os.path import expanduser
 import pywikibot
 import requests
-import MySQLdb
+import mariadb
 
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
@@ -97,8 +97,8 @@ def isDisam(item):
     return False
 
 def main():
-    db = MySQLdb.connect(host='wikidatawiki.analytics.db.svc.eqiad.wmflabs', db='wikidatawiki_p', read_default_file=f'{expanduser("~")}/replica.my.cnf')
-    cur = db.cursor()
+    db = mariadb.connect(host='wikidatawiki.analytics.db.svc.wikimedia.cloud', database='wikidatawiki_p', default_file=f'{expanduser("~")}/replica.my.cnf')
+    cur = db.cursor(dictionary=True)
     db.set_character_set('utf8')
     cur.execute('SET NAMES utf8;')
     cur.execute('SET CHARACTER SET utf8;')
@@ -122,11 +122,11 @@ def main():
             for m in data['*'][0]['a']['*']:
                 try:
                     title = rb(m['title'].replace('_', ' '))
-                    query = 'SELECT DISTINCT wbit_item_id FROM wbt_item_terms JOIN wbt_term_in_lang ON wbit_term_in_lang_id = wbtl_id JOIN wbt_text_in_lang ON wbxl_id=wbtl_text_in_lang_id JOIN wbt_text ON wbx_id=wbxl_text_id WHERE wbtl_type_id=1 AND wbx_text="{:s}"'.format(title);
-                    cur.execute(query)
+                    query = 'SELECT DISTINCT wbit_item_id FROM wbt_item_terms JOIN wbt_term_in_lang ON wbit_term_in_lang_id = wbtl_id JOIN wbt_text_in_lang ON wbxl_id=wbtl_text_in_lang_id JOIN wbt_text ON wbx_id=wbxl_text_id WHERE wbtl_type_id=1 AND wbx_text=%(title)s'
+                    cur.execute(query, {'title' : title})
                     cnt = {}
                     for row in cur.fetchall():
-                        qid = 'Q'+str(row[0])
+                        qid = f'Q{row.get("wbit_item_id", "")}'
                         item = pywikibot.ItemPage(repo, qid)
                         item.get()
                         if isDisam(item):

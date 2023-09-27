@@ -26,7 +26,7 @@ for i in range(len(content)):
             if res:
                 entity = pywikibot.Page(repo, res.group(1))  # T189321
         if res:
-            if any(x in content[i][1] for x in ('{{done', '{{deleted', '{{not done', '{{notdone', '{{not deleted', '{{merged')):
+            if any(x in content[i][1] for x in ('{{done', '{{deleted', '{{not done', '{{notdone', '{{not deleted', '{{merged', '{{DeltaBot ignore')):
                 continue
             if not entity.exists() and not entity.isRedirectPage():
                 for m in site.logevents(logtype='delete', page=entity, total=1):

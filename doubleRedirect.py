@@ -17,7 +17,7 @@ def redirect(fromId, toId):
         'action': 'query',
         'meta': 'tokens'
     }
-    req = api.Request(site=site, **params)
+    req = api.Request(site=site, parameters=params)
     data = req.submit()
     # create redirect
     params3 = {
@@ -27,7 +27,7 @@ def redirect(fromId, toId):
         'bot': 1,
         'token': data['query']['tokens']['csrftoken']
     }
-    req3 = api.Request(site=site, **params3)
+    req3 = api.Request(site=site, parameters=params3)
     data3 = req3.submit()
 
 
@@ -38,7 +38,7 @@ def main():
         'qppage': 'DoubleRedirects',
         'qplimit': 5000
     }
-    req = api.Request(site=site, **params)
+    req = api.Request(site=site, parameters=params)
     data = req.submit()
     for m in data['query']['querypage']['results']:
         try:

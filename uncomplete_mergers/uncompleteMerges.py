@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from os.path import expanduser
 import pywikibot
 from pywikibot.data import api
 from datetime import datetime, timedelta
@@ -167,7 +168,7 @@ def check(q1):
 
 
 def main():
-    time_file = 'uncompleteMerges_time.dat'
+    time_file = f'{expanduser("~")}/jobs/uncomplete_mergers/uncompleteMerges_time.dat'
     with open(time_file, 'r') as file_handle:
         done_until_str = file_handle.read()
 

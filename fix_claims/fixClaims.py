@@ -4,12 +4,13 @@ import requests
 import pywikibot
 import json
 from stdnum import isbn
+from os.path import expanduser
 
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
 siteCommons = pywikibot.Site('commons', 'commons')
 
-with open('fixClaims/categoryPrefix.dat', encoding='utf-8') as f:
+with open(f'{expanduser("~")}/jobs/fix_claims/categoryPrefix', encoding='utf-8') as f:
     exec(f.read())
 
 whitelist = ['Q4115189', 'Q13406268', 'Q15397819']
@@ -605,7 +606,7 @@ def proceedOneCandidate(q, job):
 def main():
     r = requests.get('https://www.wikidata.org/wiki/User:DeltaBot/fixClaims/jobs?action=raw')
     jobs = r.json()
-    done = json.load(open('fixClaims/done.json', encoding='utf-8'))
+    done = json.load(open(f'{expanduser("~")}/jobs/fix_claims/done.json', encoding='utf-8'))
     notdone = {}
     for job in jobs:
         candidates = getViolations(job)
@@ -621,7 +622,7 @@ def main():
                     done[job['name']].append(q)
                 else:
                     notdone.setdefault(job['name'],[]).append(q)
-    f1 = open('fixClaims/done.json', 'w', encoding='utf-8')
+    f1 = open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8')
     f1.write(json.dumps(done, ensure_ascii=False))
     f1.close()
     createMaintenanceList(notdone)

@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from os.path import expanduser
 import pywikibot
 import requests
 import MySQLdb
@@ -96,7 +97,7 @@ def isDisam(item):
     return False
 
 def main():
-    db = MySQLdb.connect(host='wikidatawiki.analytics.db.svc.eqiad.wmflabs', db='wikidatawiki_p', read_default_file='replica.my.cnf')
+    db = MySQLdb.connect(host='wikidatawiki.analytics.db.svc.eqiad.wmflabs', db='wikidatawiki_p', read_default_file=f'{expanduser("~")}/replica.my.cnf')
     cur = db.cursor()
     db.set_character_set('utf8')
     cur.execute('SET NAMES utf8;')

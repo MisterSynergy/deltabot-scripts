@@ -2,6 +2,8 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from os.path import expanduser
+
 import pywikibot
 from pywikibot.data import api
 from datetime import datetime, timedelta
@@ -44,7 +46,7 @@ def clearItem(fromId):
     data2 = req2.submit()
 
 def main():
-    time_file = 'missingRedirect_time.dat'
+    time_file = f'{expanduser("~")}/jobs/missing_redirect/missingRedirect_time.dat'
     with open(time_file,'r') as file_handle:
         done_until_str = file_handle.read()
     

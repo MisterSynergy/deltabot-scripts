@@ -99,10 +99,9 @@ def isDisam(item):
 def main():
     db = mariadb.connect(host='wikidatawiki.analytics.db.svc.wikimedia.cloud', database='wikidatawiki_p', default_file=f'{expanduser("~")}/replica.my.cnf')
     cur = db.cursor(dictionary=True)
-    db.set_character_set('utf8')
-    cur.execute('SET NAMES utf8;')
-    cur.execute('SET CHARACTER SET utf8;')
-    cur.execute('SET character_set_connection=utf8;')
+#    cur.execute('SET NAMES utf8;')
+#    cur.execute('SET CHARACTER SET utf8;')
+#    cur.execute('SET character_set_connection=utf8;')
 
     for task in tasks:
         try:

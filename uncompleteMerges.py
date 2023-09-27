@@ -20,7 +20,7 @@ def addition_check(q1, q2):
         'prop': 'links',
         'pllimit': 500
     }
-    req2 = api.Request(site=site, **params2)
+    req2 = api.Request(site=site, parameters=params2)
     data2 = req2.submit()
     for m in data2['query']['pages']:
         try:
@@ -59,7 +59,7 @@ def clearItem(fromId):
         'action': 'query',
         'meta': 'tokens'
     }
-    req = api.Request(site=site, **params)
+    req = api.Request(site=site, parameters=params)
     data = req.submit()
     # clear item
     params2 = {
@@ -71,7 +71,7 @@ def clearItem(fromId):
         'summary': 'clearing item to prepare for redirect',
         'token': data['query']['tokens']['csrftoken']
     }
-    req2 = api.Request(site=site, **params2)
+    req2 = api.Request(site=site, parameters=params2)
     data2 = req2.submit()
 
 
@@ -96,7 +96,7 @@ def check(q1):
         'blnamespace': 0,
         'bllimit': 11
     }
-    req2 = api.Request(site=site, **params2)
+    req2 = api.Request(site=site, parameters=params2)
     data2 = req2.submit()
     if len(data2['query']['backlinks']) > 10:
         return 0
@@ -108,7 +108,7 @@ def check(q1):
         'blnamespace': 4,
         'bllimit': 1
     }
-    req2 = api.Request(site=site, **params2)
+    req2 = api.Request(site=site, parameters=params2)
     data2 = req2.submit()
     if len(data2['query']['backlinks']) > 0:
         return 0
@@ -125,7 +125,7 @@ def check(q1):
         'titles': q1,
         'rvlimit': 200
     }
-    req1 = api.Request(site=site, **params1)
+    req1 = api.Request(site=site, parameters=params1)
     data1 = req1.submit()
     q2 = False
     for foo in data1['query']['pages']:
@@ -177,7 +177,7 @@ def main():
             'rclimit': 500,
             'rccontinue': rccontinue
         }
-        req = api.Request(site=site, **params)
+        req = api.Request(site=site, parameters=params)
         data = req.submit()
         for m in data['query']['recentchanges']:
             timestamp = m['timestamp']

@@ -39,6 +39,18 @@ def addition_check(q1, q2):
         if 'ikimedia' in item1.descriptions['en'] and 'ikimedia' not in item2.descriptions['en']:
             return False
 
+    dab_items = [ 'Q4167410', 'Q15407973', 'Q22808320', 'Q61996773', 'Q66480449' ]
+    item1_is_dab, item2_is_dab = False, False
+    for claim in item1.claims.get('P31', []):
+        if claim.getTarget().title() in dab_items:
+            item1_is_dab = True
+    for claim in item2.claims.get('P31', []):
+        if claim.getTarget().title() in dab_items:
+            item2_is_dab = True
+
+    if item1_is_dab and not item2_is_dab:
+        return False
+
     return True
 
 

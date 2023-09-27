@@ -45,9 +45,9 @@ def clearItem(fromId):
 
 def main():
     time_file = 'missingRedirect_time.dat'
-    f1 = open(time_file,'r')
-    old_time_str = str(int(f1.read())+1)
-    f1.close()
+    with open(time_file,'r') as file_handle:
+        done_until_str = file_handle.read()
+    
     now = datetime.now()
     new_time = now - timedelta(minutes=10)
     new_time_str = new_time.strftime("%Y%m%d%H%M%S")
@@ -85,9 +85,8 @@ def main():
             rccontinue = data['query-continue']['recentchanges']['rccontinue']
         else:
             break
-    f1 = open(time_file, 'w')
-    f1.write(re.sub(r'\:|\-|Z|T', '', timestamp))
-    f1.close()
+    with open(time_file, 'w') as file_handle:
+        file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
 
 if __name__ == "__main__":
     main()

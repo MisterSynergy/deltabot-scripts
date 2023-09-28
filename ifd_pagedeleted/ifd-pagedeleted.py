@@ -2,101 +2,141 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from os.path import expanduser
+import re
 import sys
+from typing import Any
+
 import pywikibot
 from pywikibot.data import api
-import re
-from os.path import expanduser
 
 sys.tracebacklimit = 0
 
-site = pywikibot.Site('wikidata', 'wikidata')
-repo = site.data_repository()
-page = pywikibot.Page(site, 'User:Pasleim/Items for deletion/Page deleted')
+SITE = pywikibot.Site('wikidata', 'wikidata')
+REPO = SITE.data_repository()
 
-text = ''
+TIMESTAMP_FILENAME = f'{expanduser("~")}/jobs/ifd_pagedeleted/ifd-pagedeleted_time.dat'
+PREFIX_DICT = {
+    'quote' : 'q',
+    'news' : 'n',
+    'voyage' : 'voy',
+    'books' : 'b',
+    'source' : 's',
+    'species' : 'species',
+    'versity' : 'v',
+    'media' : 'wmf',
+    'data': 'd',
+}
 
-prefixDic = {'quote':'q', 'news': 'n', 'voyage': 'voy', 'books': 'b', 'source': 's', 'species': 'species', 'versity': 'v', 'media': 'wmf', 'data': 'd'}
 
-ts_filename = f'{expanduser("~")}/jobs/ifd_pagedeleted/ifd-pagedeleted_time.dat'
-
-def countEid(cc):
+def count_external_id(cc:dict[str, list]) -> int:
     cnt = 0
+
     for key in cc:
         if cc[key][0].type == 'external-id':
            cnt += 1
+
     return cnt
 
-def oldEdits():
-    global text
-    oldtext = page.get()
-    foo = oldtext.split('\n')
-    for line in foo:
-        if '|}' not in line:
-            text += line+'\n'
 
-def newEdits():
-    global text
-    f1 = open(ts_filename,'r')
-    oldTime = f1.read().strip()
-    rccontinue = oldTime+'|0'
+def old_edits(old_page_content:str) -> str:
+    text = ''
+
+    for line in old_page_content.split('\n'):
+        if '|}' in line:
+            continue
+        text += f'{line}\n'
+    
+    return text
+
+
+def new_edits(text) -> tuple[str, str]:
+    with open(TIMESTAMP_FILENAME, mode='r', encoding='utf8') as file_handle:
+        old_time = file_handle.read().strip()
+
+    rccontinue = f'{old_time}|0'
     while True:
         params = {
-            'action': 'query',
-            'list': 'recentchanges',
-            'rcprop': 'title|comment|timestamp',
-            'rcstart': oldTime,
-            'rcdir': 'newer',
-            'rctype': 'edit',
-            'rcnamespace': 0,
-            'rccontinue': rccontinue,
-            'rclimit': 500,
-            'format': 'json'
+            'action' : 'query',
+            'list' : 'recentchanges',
+            'rcprop' : 'title|comment|timestamp',
+            'rcstart' : old_time,
+            'rcdir' : 'newer',
+            'rctype' : 'edit',
+            'rcnamespace' : '0',
+            'rccontinue' : rccontinue,
+            'rclimit' : '500',
+            'format' : 'json',
         }
-        req = api.Request(site=site, parameters=params)
+        req = api.Request(site=SITE, parameters=params)
         data = req.submit()
-        for m in data['query']['recentchanges']:
-            timestamp = m['timestamp']
-            if 'comment' not in m:
+        for revision in data.get('query', {}).get('recentchanges', []):
+            timestamp = revision.get('timestamp')
+            if timestamp is None:
                 continue
-            res = re.search('clientsitelink-remove\:1\|\|(.*)wiki(.*) \*\/ (.*)', m['comment'])
-            if res:
-                try:
-                    item = pywikibot.ItemPage(repo, m['title'])
-                    if item.isRedirectPage():
-                        continue
-                    if not item.exists():
-                        continue
-                    dict = item.get()
-                    if len(dict['sitelinks']) != 0:
-                        continue
-                    nstat = len(dict['claims'])
-                    nsources = 0
-                    for p in dict['claims']:
-                        for c in dict['claims'][p]:
-                            for s in c.getSources():
-                                keys = list(s.keys())
-                                nsources += len(keys) - keys.count('P143')
-                    source = '' if nsources == 0 else '<small>(' + str(nsources) + ')</small>'
-                    backlinks = sum(1 for _ in item.backlinks(namespaces=0))
-                    externalids = countEid(dict['claims'])
-                    if res.group(2) == None or res.group(2) == '':
-                        prefix = 'w'
-                    else:
-                        prefix = prefixDic[res.group(2)]
-                    text += u'|-\n| {{Q|'+m['title']+'}} ([//www.wikidata.org/w/index.php?title='+m['title']+'&action=history hist]) || '+str(nstat)+' '+source+' || '+str(backlinks)+' || '+str(externalids)+' || [[:'+prefix+':'+res.group(1).replace('_','-')+':'+res.group(3)+']] || '+m['timestamp']+'\n'
-                except:
-                    pass
-        if 'query-continue' in data:
-             rccontinue = data['query-continue']['recentchanges']['rccontinue']
-        else:
-             break
-    text += '|}'
-    f3 = open(ts_filename,'w')
-    f3.write(re.sub(r'\:|\-|Z|T', '', timestamp))
-    f3.close()
-    page.put(text, summary='upd', minorEdit=False)
 
-if __name__ == "__main__":
-    oldEdits()
-    newEdits()
+            comment = revision.get('comment')
+            if comment is None:
+                continue
+
+            res = re.search('clientsitelink-remove\:1\|\|(.*)wiki(.*) \*\/ (.*)', comment)
+
+            if not res:
+                continue
+
+            item = pywikibot.ItemPage(REPO, revision['title'])
+            if item.isRedirectPage():
+                continue
+            if not item.exists():
+                continue
+
+            dct = item.get()
+            if 'sitelinks' in dct and len(dct['sitelinks']) != 0:
+                continue
+
+            nstat = len(dct['claims'])
+            nsources = 0
+
+            for p in dct['claims']:
+                for c in dct['claims'][p]:
+                    for s in c.getSources():
+                        keys = list(s.keys())
+                        nsources += len(keys) - keys.count('P143')
+
+            source = '' if nsources == 0 else f'<small>({nsources})</small>'
+            backlinks = sum(1 for _ in item.backlinks(namespaces=0))
+            externalids = count_external_id(dct['claims'])
+
+            if res.group(2) is not None and res.group(2)!='':
+                prefix = 'w'
+            else:
+                prefix = PREFIX_DICT.get(res.group(2), 'w')
+
+            text += f'|-\n| {{{{Q|{revision["title"]}}}}} ([//www.wikidata.org/w/index.php?title={revision["title"]}&action=history hist]) || {nstat} {source} || {backlinks} || {externalids} || [[:{prefix}:{res.group(1).replace("_","-")}:{res.group(3)}]] || {revision["timestamp"]}\n'
+
+        if 'query-continue' not in data:
+             break
+
+        rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', 0)
+
+    text += '|}'
+
+    return text, timestamp
+
+
+def save_to_wiki(page:pywikibot.Page, wikitext:str) -> None:
+    page.text = wikitext
+    page.save(summary='upd', minor=False)
+
+
+def main() -> None:
+    page = pywikibot.Page(SITE, 'User:Pasleim/Items for deletion/Page deleted')
+    wikitext, timestamp = new_edits(old_edits(page.get()))
+
+    save_to_wiki(page, wikitext)
+    with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
+        file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
+
+
+if __name__ == '__main__':
+    main()

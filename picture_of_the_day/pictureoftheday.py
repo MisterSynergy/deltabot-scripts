@@ -2,39 +2,58 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import pywikibot
-import time
 import re
+from time import strftime
 
-site1 = pywikibot.Site("wikidata", "wikidata")
-repo1 = site1.data_repository()
-site2 = pywikibot.Site("commons", "commons")
-repo2 = site2.data_repository()
+import pywikibot as pwb
+
+
+SITE_WD = pwb.Site('wikidata', 'wikidata')
+REPO_WD = SITE_WD.data_repository()
+
+SITE_COMMONS = pwb.Site('commons', 'commons')
+REPO_COMMONS = SITE_COMMONS.data_repository()
+
+POTD_TEMPLATE_QID = 'Q14334596'  # item for Template:POTD
+IMAGE_PID = 'P18'
 
 CLEANR = re.compile("<.*?>")
 
 
-def addImage(image):
+def add_image(image:str) -> None:
     print(image)
-    target = pywikibot.FilePage(repo2, image)
-    item = pywikibot.ItemPage(repo1, "Q14334596")
+
+    target_image = pwb.FilePage(REPO_COMMONS, image)
+    item = pwb.ItemPage(REPO_WD, POTD_TEMPLATE_QID)
     item.get()
-    if "P18" in item.claims:
-        if len(item.claims["P18"]) == 1:
-            item.claims["P18"][0].changeTarget(target)
-            return True
-    claim = pywikibot.Claim(repo1, "P18")
-    claim.setTarget(target)
-    item.addClaim(claim)
-    return True
+
+    if IMAGE_PID not in item.claims:
+        claim = pwb.Claim(REPO_WD, IMAGE_PID)
+        claim.setTarget(target_image)
+        item.addClaim(claim)
+        return
+
+    if len(item.claims[IMAGE_PID])==1:
+        item.claims[IMAGE_PID][0].changeTarget(target_image)
+        return
+
+    # if there are more than one P18 claims on that item, nothing happens.
 
 
-page = pywikibot.Page(site2, "Template:Potd/" + time.strftime("%Y-%m-%d"))
-cont = page.get().replace("\n", "")
-cleantext = re.sub(CLEANR, "", cont)
-res = re.search("\{\{Potd filename\|(.*?)\|", cleantext)
-if res:
-    file_name = res.group(1).replace("_", " ")
-    if "1=" in file_name:
-        file_name = file_name.replace("1=", "")
-    addImage(file_name.strip())
+def main() -> None:
+    page = pwb.Page(SITE_COMMONS, f'Template:Potd/{strftime("%Y-%m-%d")}')
+    page_content = page.get().replace('\n', '')
+    clean_text = re.sub(CLEANR, '', page_content)
+
+    res = re.search('\{\{Potd filename\|(.*?)\|', clean_text)
+    if res:
+        file_name = res.group(1).replace('_', ' ')
+
+        if '1=' in file_name:
+            file_name = file_name.replace('1=', '')
+
+        add_image(file_name.strip())
+
+
+if __name__=='__main__':
+    main()

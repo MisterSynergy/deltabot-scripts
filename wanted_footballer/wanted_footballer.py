@@ -34,7 +34,7 @@ def query_wdqs(query:str) -> Generator[dict, None, None]:
 
     try:
         data = response.json()
-    except JSONDecodeError as exception:
+    except requests.exceptions.JSONDecodeError as exception:
         raise RuntimeError('Cannot parse result from SPARQL endpoint') from exception
 
     for row in data.get('results', {}).get('bindings', []):

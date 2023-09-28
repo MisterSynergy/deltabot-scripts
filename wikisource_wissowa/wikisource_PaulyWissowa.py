@@ -298,7 +298,7 @@ def updateItem():
         url2 = 'https://'+lang+'.'+project+'.org/w/api.php?action=query&pageids='+pageids+'&prop=info&format=json&rawcontinue='
         r2 = requests.get(url2)
         data2 = r2.json()
-        for pageid in data2['query']['pages']:
+        for pageid in data2.get('query', {}).get('pages', {}):
             if 'ns' in data2['query']['pages'][pageid]:
                 if data2['query']['pages'][pageid]['ns'] == 0:
                     addClaims(data2['query']['pages'][pageid]['title'])

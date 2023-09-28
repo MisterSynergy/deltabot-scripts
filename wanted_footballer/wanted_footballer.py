@@ -15,7 +15,7 @@ SITE = pwb.Site('wikidata','wikidata')
 PROJECTS = ["en","sv","nl","de","fr","war","ceb","ru","it","es","vi","pl","ja","pt","zh","uk","ca","fa","no","fi","id","ar","sr","cs","ko","sh","hu","ms","ro","tr"]
 
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
-WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (wanted_footballer.py via User:PLbot at Wikidata; mailto:tools.pltools@toolforge.org)'
+WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (wanted_footballer.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 WD = 'http://www.wikidata.org/entity/'
 
 

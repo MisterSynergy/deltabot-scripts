@@ -128,9 +128,7 @@ def oldEdits():
 def newEdits():
     global text
     f1 = open('reports/vandalismTerms_time.dat','r')
-
-    oldTime = str(int(f1.read())+1)
-
+    oldTime = f1.read().strip()
     f1.close()
     rccontinue = oldTime+'|0'
     while (1 == 1):

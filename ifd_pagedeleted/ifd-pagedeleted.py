@@ -35,10 +35,7 @@ def oldEdits():
 def newEdits():
     global text
     f1 = open('reports/ifd-pagedeleted_time.dat','r')
-
-    oldTime = str(int(f1.read())+1)
-
-    f1.close()
+    oldTime = f1.read().strip()
     rccontinue = oldTime+'|0'
     while True:
         params = {

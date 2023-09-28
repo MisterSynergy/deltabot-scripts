@@ -54,7 +54,12 @@ def make_report(project:str) -> None:
     FILTER NOT EXISTS {{ ?item ^schema:about/schema:isPartOf <https://{project}.wikipedia.org/> }}
 }} ORDER BY DESC(?cnt) LIMIT 100"""
 
-    for row in query_wdqs(query):
+    try:
+        result = query_wdqs(query)
+    except RuntimeError:
+        return  # skip project
+
+    for row in result:
         qid = row.get('item', {}).get('value', '').replace(WD, '')
         
         if row.get('cnt', {}).get('value', 0) != cnt:

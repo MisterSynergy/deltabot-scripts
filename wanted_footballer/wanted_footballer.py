@@ -2,7 +2,6 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from json.decoder import JSONDecodeError
 from time import strftime
 from typing import Generator
 
@@ -12,7 +11,7 @@ import requests
 
 SITE = pwb.Site('wikidata','wikidata')
 
-PROJECTS = ["en","sv","nl","de","fr","war","ceb","ru","it","es","vi","pl","ja","pt","zh","uk","ca","fa","no","fi","id","ar","sr","cs","ko","sh","hu","ms","ro","tr"]
+PROJECTS = ['en','sv','nl','de','fr','war','ceb','ru','it','es','vi','pl','ja','pt','zh','uk','ca','fa','no','fi','id','ar','sr','cs','ko','sh','hu','ms','ro','tr']
 
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
 WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (wanted_footballer.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'

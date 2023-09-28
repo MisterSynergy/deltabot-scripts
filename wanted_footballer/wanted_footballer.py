@@ -56,7 +56,8 @@ def make_report(project:str) -> None:
     try:
         result = query_wdqs(query)
     except RuntimeError:
-        return  # skip project
+        print(f'{strftime("%Y-%m-%d, %H:%M:%S")}: omit project "{project}" due to query timeout')
+        return
 
     for row in result:
         qid = row.get('item', {}).get('value', '').replace(WD, '')

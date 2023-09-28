@@ -48,7 +48,7 @@ def make_report(project:str) -> None:
     {{
         SELECT ?item (COUNT(*) AS ?cnt) WHERE {{
             ?item wdt:P106 wd:Q937857; ^schema:about ?article
-        }} GROUP BY ?item ORDER BY DESC(?cnt)
+        }} GROUP BY ?item HAVING(?cnt>=5) ORDER BY DESC(?cnt)
     }}
     FILTER NOT EXISTS {{ ?item ^schema:about/schema:isPartOf <https://{project}.wikipedia.org/> }}
 }} ORDER BY DESC(?cnt) LIMIT 100"""

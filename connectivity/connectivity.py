@@ -47,7 +47,10 @@ def getData(project):
             text += ' || {:4.1f}'.format(collec[i]/total*100)+'%'
         
         cur = db.cursor(dictionary=True)
-        cur.execute("SELECT count(*) AS count, CONVERT(ips_site_id USING utf8) AS ips_site_id FROM wb_items_per_site WHERE ips_item_id IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = %(project)s) AND ips_site_id <> %(project)s GROUP BY ips_site_id ORDER BY count DESC LIMIT 0,3")
+        cur.execute(
+            "SELECT count(*) AS count, CONVERT(ips_site_id USING utf8) AS ips_site_id FROM wb_items_per_site WHERE ips_item_id IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = %(project)s) AND ips_site_id <> %(project)s GROUP BY ips_site_id ORDER BY count DESC LIMIT 0,3",
+            { 'project' : project }
+        )
         for row in cur.fetchall():
             text += ' || {} || {:,}'.format(row.get('ips_site_id', ''), row.get('count', 0))
         text += '\n|-'

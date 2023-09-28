@@ -5,6 +5,7 @@
 import pywikibot
 from pywikibot.data import api
 import re
+from os.path import expanduser
 
 site = pywikibot.Site("wikidata", "wikidata")
 repo = site.data_repository()
@@ -14,6 +15,8 @@ text = u'The following unpatrolled items might be vandalised. Please either reve
 text += '{| class="wikitable sortable plainlinks"\n! Item !! Term !! Action !! Language !! Filter !! User !! Timestamp\n'
 
 latin = ['af','ak','an','ang','ast','ay','az','bar','bcl','bi','bm','br','bs','ca','cbk-zam','ceb','ch','chm','cho','chy','co','crh-latn','cs','csb','cy','da','de','diq','dsb','ee','eml','en','eo','es','et','eu','ff','fi','fit','fj','fo','fr','frp','frr','fur','fy','ga','gd','gl','gn','gsw','gv','ha','haw','ho','hr','hsb','ht','hu','hz','id','ie','ig','ik','ilo','io','is','it','jbo','jv','kab','kg','ki','kj','kl','kr','ksh','ku','kw','la','lad','lb','lg','li','lij','lmo','ln','lt','lv','map-bms','mg','mh','mi','min','ms','mt','mus','mwl','na','nah','nan','nap','nb','nds','nds-nl','ng','nl','nn','nov','nrm','nv','ny','oc','om','pag','pam','pap','pcd','pdc','pih','pl','pms','pt','qu','rm','rn','ro','roa-tara','rup','rw','sc','scn','sco','se','sg','sgs','sk','sl','sm','sn','so','sq','sr-el','ss','st','stq','su','sv','sw','szl','tet','tk','tl','tn','to','tpi','tr','ts','tum','tw','ty','uz','ve','vec','vi','vls','vo','vro','wa','war','wo','xh','yo','za','zea','zu']
+
+ts_filename = f'{expanduser("~")}/jobs/vandalism_terms/vandalismTerms_time.dat'
 
 def filter(term,termtype,lang):
     if re.search(u'(\!\!|\?\?|\.\.|,,|\<|\>)',term):
@@ -127,7 +130,7 @@ def oldEdits():
 
 def newEdits():
     global text
-    f1 = open('reports/vandalismTerms_time.dat','r')
+    f1 = open(ts_filename)
     oldTime = f1.read().strip()
     f1.close()
     rccontinue = oldTime+'|0'
@@ -186,7 +189,7 @@ def newEdits():
         else:
             break
     text += '|}'
-    f3 = open('reports/vandalismTerms_time.dat','w')
+    f3 = open(ts_filename,'w')
     f3.write(re.sub('\:|\-|Z|T','',timestamp))
     f3.close()
     page.put(text, summary='upd', minorEdit=False)

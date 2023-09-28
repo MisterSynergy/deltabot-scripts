@@ -6,6 +6,7 @@ import sys
 import pywikibot
 from pywikibot.data import api
 import re
+from os.path import expanduser
 
 sys.tracebacklimit = 0
 
@@ -16,6 +17,8 @@ page = pywikibot.Page(site, 'User:Pasleim/Items for deletion/Page deleted')
 text = ''
 
 prefixDic = {'quote':'q', 'news': 'n', 'voyage': 'voy', 'books': 'b', 'source': 's', 'species': 'species', 'versity': 'v', 'media': 'wmf', 'data': 'd'}
+
+ts_filename = f'{expanduser("~")}/jobs/ifd_pagedeleted/ifd-pagedeleted_time.dat'
 
 def countEid(cc):
     cnt = 0
@@ -34,7 +37,7 @@ def oldEdits():
 
 def newEdits():
     global text
-    f1 = open('reports/ifd-pagedeleted_time.dat','r')
+    f1 = open(ts_filename,'r')
     oldTime = f1.read().strip()
     rccontinue = oldTime+'|0'
     while True:
@@ -89,7 +92,7 @@ def newEdits():
         else:
              break
     text += '|}'
-    f3 = open('reports/ifd-pagedeleted_time.dat','w')
+    f3 = open(ts_filename,'w')
     f3.write(re.sub(r'\:|\-|Z|T', '', timestamp))
     f3.close()
     page.put(text, summary='upd', minorEdit=False)

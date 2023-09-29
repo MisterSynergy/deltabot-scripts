@@ -31,7 +31,7 @@ def createOverview(proposals):
 
 def main():
     all = {}
-    categories = ['Generic', 'Place', 'Authority control', 'Creative work', 'Transportation', 'Person', 'Natural science', 'Organization', 'Sister projects', 'Sports', 'Lexemes', 'Commons']
+    categories = ['Generic', 'Place', 'Authority control', 'Creative work', 'Transportation', 'Person', 'Natural science', 'Organization', 'Sister projects', 'Sports', 'Lexemes', 'Computing']
     for category in categories:
         try:
             page = pywikibot.Page(site, 'Wikidata:Property_proposal/'+category)

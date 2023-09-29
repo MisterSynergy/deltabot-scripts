@@ -2,74 +2,178 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import MySQLdb
-import time
-import pywikibot
+from os.path import expanduser
+from time import strftime
+from typing import Generator, Optional
 
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs",db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
-cur.execute("SELECT count(*) FROM page WHERE page_namespace = 0 AND page_is_redirect=0")
-blo =  cur.fetchall()
-total =  blo[0][0]
-
-text = 'Update: <onlyinclude>'+time.strftime("%Y-%m-%d %H:%M (%Z)")+'</onlyinclude>.\n\n'
-text += 'Total items: '+('{:,}'.format(total))+'\n\n'
-text += '== Number of labels, descriptions and aliases for items per language ==\n'
-text += '{| class="wikitable sortable"\n|-\n! Language code\n! Language (English)\n! Language (native)\n! data-sort-type="number"|# of labels\n! data-sort-type="number"|# of descriptions\n! data-sort-type="number"|# of aliases\n! data-sort-type="number"|# of items with aliases\n'
-
-collect = {}
-
-#get languages
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
-cur.execute("SELECT DISTINCT term_language FROM wb_terms")
-for row in cur.fetchall():
-    collect[row[0]] = {}
+import mariadb
+import pywikibot as pwb
 
 
-#get labels
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
-for lang in collect:
-    cur.execute("SELECT count(*) FROM wb_terms WHERE term_entity_type = 'item' AND term_type='label' AND term_language = '"+lang+"'")
-    for row in cur.fetchall():
-        collect[lang]['label'] = row[0]
+class Replica:
+    def __init__(self) -> None:
+        self.connection = mariadb.connect(
+            host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+            database='wikidatawiki_p',
+            default_file=f'{expanduser("~")}/replica.my.cnf',
+        )
+        self.cursor = self.connection.cursor(dictionary=True)
 
-#get descriptions
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
-for lang in collect:
-    cur.execute("SELECT count(*) FROM wb_terms WHERE term_entity_type = 'item' AND term_type='description' AND term_language = '"+lang+"'")
-    for row in cur.fetchall():
-        collect[lang]['description'] = row[0]
+    def __enter__(self):
+        return (self.connection, self.cursor)
 
-#get aliases
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
-for lang in collect:
-    cur.execute("SELECT count(*), count(distinct(term_entity_id)) FROM wb_terms WHERE term_entity_type = 'item' AND term_type='alias' AND term_language='"+lang+"'")
-    for row in cur.fetchall():
-        collect[lang]['alias'] = row[0]
-        collect[lang]['itemsWithAlias'] = row[1]
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.cursor.close()
+        self.connection.close()
 
 
-for lang in sorted(collect):
-    text += '|-\n| '+lang+' || {{#language:'+lang+'|en}} || {{#language:'+lang+'}}\n| '
-    if 'label' in collect[lang]:
-        text += ('{:,}'.format(collect[lang]['label']))+' ('+str(round(100/(float)(total)*collect[lang]['label'],1))+'%)'
-    text += ' || '
-    if 'description' in collect[lang]:
-        text += ('{:,}'.format(collect[lang]['description']))+' ('+str(round(100/(float)(total)*collect[lang]['description'],1))+'%)'
-    text += '\n| '
-    if 'alias' in collect[lang]:
-        text += ('{:,}'.format(collect[lang]['alias']))+' || '+('{:,}'.format(collect[lang]['itemsWithAlias']))
-    else:
+def get_total_pages() -> Optional[int]:
+    with Replica() as cur:
+        query = 'SELECT COUNT(*) AS cnt FROM page WHERE page_namespace=0 AND page_is_redirect=0'
+        cur.execute(query)
+
+        result =  cur.fetchall()
+        total =  result[0].get('cnt')
+
+    return total
+
+
+def get_languages() -> Generator[str, None, None]:
+    with Replica() as cur:
+        query = 'SELECT DISTINCT CONVERT(term_language USING utf8) AS term_language FROM wb_terms'
+        cur.execute(query)
+
+        for row in cur.fetchall():
+            lang = row.get('term_language')
+            if lang is None:
+                continue
+
+            yield lang
+
+
+def get_label_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
+    with Replica() as cur:
+        query = 'SELECT COUNT(*) AS cnt FROM wb_terms WHERE term_entity_type="item" AND term_type="label" AND term_language=%(lang)s'
+        for lang in langs:
+            params = { 'lang' : lang }
+            cur.execute(query, params)
+
+            for row in cur.fetchall():
+                cnt = row.get('cnt')
+                if cnt is None:
+                    continue
+
+                yield lang, cnt
+
+
+def get_description_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
+    with Replica() as cur:
+        query = 'SELECT COUNT(*) AS cnt FROM wb_terms WHERE term_entity_type="item" AND term_type="description" AND term_language=%(lang)s'
+        for lang in langs:
+            params = { 'lang' : lang }
+            cur.execute(query, params)
+
+            for row in cur.fetchall():
+                cnt = row.get('cnt')
+                if cnt is None:
+                    continue
+
+                yield lang, cnt
+
+
+def get_alias_counts(langs:list[str]) -> Generator[tuple[str, int, int], None, None]:
+    with Replica() as cur:
+        query = 'SELECT COUNT(*) AS cnt, COUNT(DISTINCT(term_entity_id)) AS cnt_distinct FROM wb_terms WHERE term_entity_type="item" AND term_type="alias" AND term_language=%(lang)s'
+        for lang in langs:
+            params = { 'lang' : lang }
+            cur.execute(query, params)
+
+            for row in cur.fetchall():
+                cnt = row.get('cnt')
+                cnt_distinct = row.get('cnt_distinct')
+                if cnt is None or cnt_distinct is None:
+                    continue
+
+                yield lang, cnt, cnt_distinct
+
+
+def make_header(total:int) -> str:
+    text = f'Update: <onlyinclude>{strftime("%Y-%m-%d %H:%M (%Z)")}</onlyinclude>.\n\n'
+    text += f'Total items: {total:,}\n\n'
+    text += '== Number of labels, descriptions and aliases for items per language ==\n'
+    text += '{| class="wikitable sortable"\n|-\n! Language code\n! Language (English)\n! Language (native)\n! data-sort-type="number"|# of labels\n! data-sort-type="number"|# of descriptions\n! data-sort-type="number"|# of aliases\n! data-sort-type="number"|# of items with aliases\n'
+
+    return text
+
+def make_footer(text:str) -> str:
+    text += '|}\n\n[[Category:Wikidata statistics|Language statistics]]'
+
+    return text
+
+
+def make_report(text:str, total:int, collect:dict[str, dict[str, int]]) -> str:
+    for lang in sorted(collect):
+        text += f'|-\n| {lang} || {{{{#language:{lang}|en}}}} || {{{{#language:{lang}}}}}\n| '
+
+        if 'label' in collect[lang]:
+            text += f'{collect[lang]["label"]:,} ({round(collect[lang]["label"]/total*100, 1)}%)'
+
         text += ' || '
-    text += '\n'
-text += '|}\n\n[[Category:Wikidata statistics|Language statistics]]'
 
-#write to wikidata
-if len(text) > 1000:
-    site = pywikibot.Site('wikidata', 'wikidata')
-    page = pywikibot.Page(site, 'User:Pasleim/Language statistics for items')
-    page.put(text.decode('utf-8'), summary='upd', minorEdit=False)
+        if 'description' in collect[lang]:
+            text += f'{collect[lang]["description"]:,} ({round(collect[lang]["description"]/total*100, 1)}%)'
+
+        text += '\n| '
+
+        if 'alias' in collect[lang]:
+            text += f'{collect[lang]["alias"]:,} || {collect[lang]["items_with_alias"]:,}'
+        else:
+            text += ' || '
+
+        text += '\n'
+
+    return text
+
+
+def write_to_wiki(text:str) -> None:
+    if len(text) <= 1000:  # TODO: why necessary?
+        return
+
+    page = pwb.Page(pwb.Site('wikidata', 'wikidata'), 'User:Pasleim/Language statistics for items')
+    page.text = text
+    page.save(summary='upd', minor=False)
+
+
+def main() -> None:
+    total = get_total_pages()
+    if total is None:
+        return
+
+    collect:dict[str, dict[str, int]] = {}
+
+    #get languages
+    for lang in get_languages():
+        collect[lang] = {}
+
+    #get labels
+    for lang, cnt in get_label_counts(list(collect.keys())):
+        collect[lang]['label'] = cnt
+
+    #get descriptions
+    for lang, cnt in get_description_counts(list(collect.keys())):
+        collect[lang]['description'] = cnt
+
+    #get aliases
+    for lang, cnt, cnt_distinct in get_alias_counts(list(collect.keys())):
+        collect[lang]['alias'] = cnt
+        collect[lang]['items_with_alias'] = cnt_distinct
+
+    text = make_header(total)
+    text = make_report(text, total, collect)
+    text = make_footer(text)
+
+    write_to_wiki(text)
+
+
+if __name__=='__main__':
+    main()

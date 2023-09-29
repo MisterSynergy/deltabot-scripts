@@ -5,6 +5,7 @@
 import pywikibot
 import requests
 import json
+from pywikibot.exceptions import SpamblacklistError
 
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
@@ -115,7 +116,11 @@ def createCatPage(title, q):
         text += createSection(q, title, 'wdt:P31')
     text += u'[[Category:Wikidata:List of properties|' + title + ']]'
     page = pywikibot.Page(site, 'Wikidata:List of properties/' + title)
-    page.put(text, summary='upd', minorEdit=False)
+    try:
+        page.put(text, summary='upd', minorEdit=False)
+    except SpamblacklistError:
+        pass
+
 
 def createOverview():
     payload = {

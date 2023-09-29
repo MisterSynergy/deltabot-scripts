@@ -2,230 +2,501 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import MySQLdb
-import time
-import pywikibot
-import sys
+from json.decoder import JSONDecodeError
+from os.path import expanduser
 import re
+import sys
+from time import strftime
+from typing import Any, Generator, Optional
+
+import mariadb
+import pywikibot as pwb
 import requests
 
-site = pywikibot.Site('wikidata','wikidata')
-whitelist = []
-disam = []
-names = []
+
+SITE = pwb.Site('wikidata', 'wikidata')
+
+LOGFILE = f'{expanduser("~")}/logs/merge-project-log.dat'
+DB_DEFAULT_FILE = f'{expanduser("~")}/replica.my.cnf'
+
+TOOL_HOST = 'tools-db'
+TOOL_DB = 's51591__main'
+WIKIDATA_REPLICA_HOST = 'wikidatawiki.analytics.db.svc.wikimedia.cloud'
+WIKIDATA_REPLICA_DB = 'wikidatawiki_p'
+
+WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
+WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+
+WD_API_ENDPOINT = 'https://www.wikidata.org/w/api.php'
+
+WD_NUM = 'http://www.wikidata.org/entity/Q'
+ALL_INCREMENT = 150
+WHITELIST_PROPERTIES = [ 'P1889', 'P629', 'P747', 'P144', 'P4969' ]
+
+
+class Replica:
+    def __init__(self, host:str, dbname:str) -> None:
+        self.connection = mariadb.connect(
+            host=host,
+            database=dbname,
+            default_file=DB_DEFAULT_FILE,
+        )
+        self.cursor = self.connection.cursor(dictionary=True)
+
+    def __enter__(self):
+        return (self.connection, self.cursor)
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.cursor.close()
+        self.connection.close()
+
+
+def query_wdqs(query:str) -> Generator[dict[str, Any], None, None]:
+    response = requests.get(
+        url=WDQS_ENDPOINT,
+        params={
+            'query' : query,
+            'format' : 'json',
+        },
+        headers={
+            'Accept' : 'application/sparql-results+json',
+            'User-Agent': WDQS_USERAGENT,
+        }
+    )
+
+    try:
+        data = response.json()
+    except JSONDecodeError as exception:
+        raise RuntimeError('Cannot parse result from SPARQL endpoint') from exception
+
+    for row in data.get('results', {}).get('bindings', []):
+        yield row
+
 
 #database queries
-def getItems(wiki1, wiki2, cat1, cat2):
-    cnx1 = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf", charset='utf8')
-    cur = cnx1.cursor()
-    cur.execute('SELECT a.ips_item_id, b.ips_item_id, a.ips_site_page, b.ips_site_page FROM (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki1+'") AND ips_site_id = "'+wiki2+'")a INNER JOIN (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki2+'") AND ips_site_id = "'+wiki1+'")b ON a.ips_site_page = b.ips_site_page')
-    for row in cur.fetchall():
-        yield row
-    if cat1:
-        cat1 = cat1.encode('utf-8')
-        cur.execute('SELECT a.ips_item_id, b.ips_item_id, a.ips_site_page, b.ips_site_page FROM (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki1+'") AND ips_site_id = "'+wiki2+'")a INNER JOIN (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki2+'") AND ips_site_id = "'+wiki1+'")b ON CONCAT("'+cat1.decode('utf-8')+'",":",a.ips_site_page) = b.ips_site_page')
-        for row in cur.fetchall():
-            yield row
-    if cat2:
-        cat2 = cat2.encode('utf-8')
-        cur.execute('SELECT a.ips_item_id, b.ips_item_id, a.ips_site_page, b.ips_site_page FROM (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki1+'") AND ips_site_id = "'+wiki2+'")a INNER JOIN (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki2+'") AND ips_site_id = "'+wiki1+'")b ON a.ips_site_page = CONCAT("'+cat2.decode('utf-8')+'",":",b.ips_site_page)')
-        for row in cur.fetchall():
-            yield row
-    if cat1 and cat2:
-        cur.execute('SELECT a.ips_item_id, b.ips_item_id, a.ips_site_page, b.ips_site_page FROM (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki1+'") AND ips_site_id = "'+wiki2+'")a INNER JOIN (SELECT ips_item_id, ips_site_page FROM wb_items_per_site WHERE ips_item_id NOT IN (SELECT ips_item_id FROM wb_items_per_site WHERE ips_site_id = "'+wiki2+'") AND ips_site_id = "'+wiki1+'")b ON CONCAT("'+cat1.decode('utf-8')+'",":",a.ips_site_page) = CONCAT("'+cat2.decode('utf-8')+'",":",b.ips_site_page)')
-        for row in cur.fetchall():
-            yield row
-    cur.close()
-    cnx1.close()
+def get_items(dbname_1:str, dbname_2:str, cat_1:Optional[str], cat_2:Optional[str]) -> Generator[dict[str, str|int], None, None]:
+    query_1 = f"""SELECT
+    a.ips_item_id AS ips_item_id_a,
+    b.ips_item_id AS ips_item_id_b,
+    CONVERT(a.ips_site_page USING utf8) AS ips_site_page_a,
+    CONVERT(b.ips_site_page USING utf8) AS ips_site_page_b
+FROM (
+    SELECT
+        ips_item_id,
+        ips_site_page
+    FROM
+        wb_items_per_site
+    WHERE
+        ips_item_id NOT IN (
+            SELECT
+                ips_item_id
+            FROM
+                wb_items_per_site
+            WHERE
+                ips_site_id=%(dbname1)s
+        )
+        AND ips_site_id=%(dbname2)s
+)a INNER JOIN (
+    SELECT
+        ips_item_id,
+        ips_site_page
+    FROM
+        wb_items_per_site
+    WHERE
+        ips_item_id NOT IN (
+            SELECT
+                ips_item_id
+            FROM
+                wb_items_per_site
+            WHERE
+                ips_site_id=%(dbname2)s
+        )
+        AND ips_site_id=%(dbname1)s
+)b ON a.ips_site_page=b.ips_site_page"""
 
-def updateList(id, wiki1, wiki2, wiki1s, wiki2s, cat1, cat2):
-    # because this script can run in parallel, check again if the selected list is not already updating 
-    cnx4 = MySQLdb.connect(host="tools-db", db="s51591__main", read_default_file="replica.my.cnf",charset='utf8')
-    cur4 = cnx4.cursor()
-    cur4.execute('SELECT update_running FROM merge_status WHERE id = ' + str(id))
-    for row in cur4.fetchall():
-        if row[0] != None:
-            print(row[0])
-            print(str(row[0]))
-            print('update is meanwhile running')
-            return 0
-    # if it is not updating, set status to updating
-    cur4.execute('UPDATE merge_status SET update_running = Now() WHERE id = ' + str(id))
-    cur4.close()
-    cnx4.commit()
-    cnx4.close()
-    
-    url = 'User:Pasleim/projectmerge/'+wiki1+'-'+wiki2
-    page = pywikibot.Page(site, url)    
-    gen = getItems(wiki1, wiki2, cat1, cat2)
+    params = { 'dbname1' : dbname_1, 'dbname2' : dbname_2 }
+
+    with Replica(WIKIDATA_REPLICA_HOST, WIKIDATA_REPLICA_DB) as (_, cur):
+        cur.execute(query_1, params)
+
+        for row in cur.fetchall():
+            yield row
+
+        if cat_1 is not None:
+            query = f"""SELECT
+              a.ips_item_id AS ips_item_id_a,
+              b.ips_item_id AS ips_item_id_b,
+              CONVERT(a.ips_site_page USING utf8) AS ips_site_page_a,
+              CONVERT(b.ips_site_page USING utf8) AS ips_site_page_b
+            FROM (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                    ips_item_id
+                  FROM
+                    wb_items_per_site
+                  WHERE
+                    ips_site_id=%(dbname1)s
+                )
+                AND ips_site_id=%(dbname2)s
+            )a INNER JOIN (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                    ips_item_id
+                  FROM
+                    wb_items_per_site
+                  WHERE
+                    ips_site_id=%(dbname2)s
+                )
+                AND ips_site_id=%(dbname1)s
+            )b ON CONCAT(%(cat1)s,":",a.ips_site_page)=b.ips_site_page"""
+            params = { 'dbname1' : dbname_1, 'dbname2' : dbname_2, 'cat1' : cat_1 }
+
+            cur.execute(query, params)
+            for row in cur.fetchall():
+                yield row
+
+        if cat_2 is not None:
+            query = f"""SELECT
+              a.ips_item_id AS ips_item_id_a,
+              b.ips_item_id AS ips_item_id_b,
+              CONVERT(a.ips_site_page USING utf8) AS ips_site_page_a,
+              CONVERT(b.ips_site_page USING utf8) AS ips_site_page_b
+            FROM (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                    ips_item_id
+                  FROM
+                    wb_items_per_site
+                  WHERE
+                    ips_site_id=%(dbname1)s
+                )
+                AND ips_site_id=%(dbname2)s
+            )a INNER JOIN (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                  ips_item_id
+                  FROM
+                  wb_items_per_site
+                  WHERE
+                  ips_site_id=%(dbname2)s
+                )
+                AND ips_site_id=%(dbname1)s
+            )b ON a.ips_site_page = CONCAT(%(cat2)s,":",b.ips_site_page)"""
+            params = { 'dbname1' : dbname_1, 'dbname2' : dbname_2, 'cat2' : cat_2 }
+
+            cur.execute(query, params)
+            for row in cur.fetchall():
+                yield row
+
+        if cat_1 is not None and cat_2 is not None:
+            query = f"""SELECT
+              a.ips_item_id AS ips_item_id_a,
+              b.ips_item_id AS ips_item_id_b,
+              CONVERT(a.ips_site_page USING utf8) AS ips_site_page_a,
+              CONVERT(b.ips_site_page USING utf8) AS ips_site_page_b
+            FROM (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                    ips_item_id
+                  FROM
+                    wb_items_per_site
+                  WHERE
+                    ips_site_id=%(dbname1)s
+                )
+                AND ips_site_id=%(dbname2)s
+            )a INNER JOIN (
+              SELECT
+                ips_item_id,
+                ips_site_page
+              FROM
+                wb_items_per_site
+              WHERE
+                ips_item_id NOT IN (
+                  SELECT
+                    ips_item_id
+                  FROM
+                    wb_items_per_site
+                  WHERE
+                    ips_site_id=%(dbname2)s
+                )
+                AND ips_site_id=%(dbname1)s
+            )b ON CONCAT(%(cat1)s,":",a.ips_site_page) = CONCAT(%(cat2)s,":",b.ips_site_page)"""
+            params = { 'dbname1' : dbname_1, 'dbname2' : dbname_2, 'cat1' : cat_1, 'cat2' : cat_2 }
+
+            cur.execute(query, params)
+            for row in cur.fetchall():
+                yield row
+
+
+def update_list(whitelist:list[list[int]], names:list[int], disam:list[int], id:int, dbname_1:str, dbname_2:str, interwiki_prefix_1:str, interwiki_prefix_2:str, cat_1:Optional[str], cat_2:Optional[str]) -> None:
+    # because this script can run in parallel, check again if the selected list is not already updating
+    with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
+        cur.execute(f'SELECT update_running FROM merge_status WHERE id=%(identifier)s', { 'identifier' : id })
+
+        for row in cur.fetchall():
+            if row.get('update_running') is None:
+                continue
+
+            print(row.get('update_running'), 'update is currently running')
+            return
+
+        # if it is not updating, set status to updating
+        cur.execute(f'UPDATE merge_status SET update_running=NOW() WHERE id=%(identifier)s', { 'identifier' : id })
+        conn.commit()
+
     pretext = ''
     accepted = 0
     excluded = 0
-    for row in gen:
-        if (row[0] not in disam and row[1] in disam) or (row[0] in disam and row[1] not in disam):
+
+    for row in get_items(dbname_1, dbname_2, cat_1, cat_2):
+        qid_num_1 = row.get('ips_item_id_a')
+        qid_num_2 = row.get('ips_item_id_b')
+        page_title_1 = row.get('ips_site_page_a')
+        page_title_2 = row.get('ips_site_page_b')
+
+        if qid_num_1 is None or qid_num_2 is None or page_title_1 is None or page_title_2 is None:
             continue
-        if (row[0] in names) or (row[1] in names):
+
+        if (qid_num_1 not in disam and qid_num_2 in disam) or (qid_num_1 in disam and qid_num_2 not in disam):
             continue
-        if [row[0],row[1]] in whitelist or [row[1],row[0]] in whitelist:
+
+        if (qid_num_1 in names) or (qid_num_2 in names):
+            continue
+
+        if [qid_num_1, qid_num_2] in whitelist or [qid_num_2, qid_num_1] in whitelist:
             excluded+=1
         else:
             accepted+=1
-            pretext += '#[[Q'+str(row[0])+']] ([[:'+wiki2s+':'+row[2].decode('utf-8')+']]) and '
-            pretext += '[[Q'+str(row[1])+']] ([[:'+wiki1s+':'+row[3].decode('utf-8')+']])\n'
+            pretext += f'# [[Q{qid_num_1}]] ([[:{interwiki_prefix_1}:{page_title_1.decode("utf8")}]]) and [[Q{qid_num_2}]] ([[:{interwiki_prefix_2}:{page_title_2.decode("utf8")}]])\n'
+
     #write text
-    text = '{{User:Pasleim/projectmerge/header\n'
-    text += '|wiki1='+wiki1+'\n'
-    text += '|wiki2='+wiki2+'\n'
-    text += '|candidates='+str(excluded+accepted)+'\n'
-    text += '|excluded='+str(excluded)+'\n'
-    text += '|remaining='+str(accepted)+'\n'
-    text += '|update='+time.strftime("%Y-%m-%d %H:%M (%Z)")+'\n'
-    text += '}}\n\n'    
-    
-    
-    if (accepted) != 0:
-        text += '== Merge candidates ==\n'+pretext
-    
-    #write to Wikidata
-    f1 = open('logs/merge-project-log.dat','a');
-    #try:
-    #no new report is created if page does not exist and report is empty
-    if accepted > 0 or page.exists():
-        page.put(text, summary='upd', minorEdit=False)
-    cnx5 = MySQLdb.connect(host="tools-db", db="s51591__main", read_default_file="replica.my.cnf")
-    cur5 = cnx5.cursor()
-    cur5.execute('UPDATE merge_status SET last_update = "'+time.strftime('%Y-%m-%d %H:%M:%S')+'", candidates="'+str(accepted)+'", update_running="0000-00-00 00:00:00" WHERE id="' + str(id) + '"')
-    cur5.close()
-    cnx5.commit()
-    cnx5.close()
-    f1.write(time.strftime("%Y-%m-%d %H:%M (%Z)")+'\tupdate '+wiki1+' '+wiki2+'\n')
-    #except:
-    #    f1.write(time.strftime("%Y-%m-%d %H:%M (%Z)")+'\tsaving problems '+wiki1+' '+wiki2+'\n')
-    f1.close()
+    text = f"""{{{{User:Pasleim/projectmerge/header
+|wiki1={dbname_1}
+|wiki2={dbname_2}
+|candidates={excluded+accepted}
+|excluded={excluded}
+|remaining={accepted}
+|update={strftime('%Y-%m-%d %H:%M (%Z)')}
+}}}}"""
+
+    if accepted > 0:
+        text += f'\n\n== Merge candidates ==\n{pretext}'
+
+    # write to Wikidata
+    with open(LOGFILE, mode='a') as file_handle:
+        page = pwb.Page(SITE, f'User:Pasleim/projectmerge/{dbname_1}-{dbname_2}')
+
+        if accepted > 0 or page.exists():
+            page.text = text
+            page.save(summary='upd', minor=False)
+
+        with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
+            cur.execute(
+                f'UPDATE merge_status SET last_update=%(timestmp)s, candidates=%(accepted)s, update_running="0000-00-00 00:00:00" WHERE id=%(identifier)s',
+                { 'timestmp' : strftime("%Y-%m-%d %H:%M:%S"), 'accepted' : accepted, 'identifier' : id }
+            )
+            conn.commit()
+
+        file_handle.write(f'{strftime("%Y-%m-%d %H:%M (%Z)")}\tupdate {dbname_1} {dbname_2}\n')
+
+
+def load_disam() -> list[int]:
+    disam:list[int] = []
+
+    for row in query_wdqs('SELECT ?item WHERE{ ?item wdt:P31/wdt:P279* wd:Q4167410 }'):
+        qid = row.get('item', {}).get('value')
+        if qid is None:
+            continue
+
+        if WD_NUM not in qid:
+            continue
+
+        disam.append(int(qid.replace(WD_NUM, '')))
+
+    return disam
+
+
+def load_names() -> list[int]:
+    names:list[int] = []
+
+    for row in query_wdqs('SELECT ?item WHERE { ?item wdt:P31/wdt:P279* wd:Q82799 }'):
+        try:
+            qid_num = int(row.get('item', {}).get('value', '').replace(WD_NUM, ''))
+        except ValueError:  # avoid issues with somevalue results and so on
+            continue
+
+        names.append(qid_num)
+
+    return names
+
+
+def load_whitelist_from_sparql() -> list[list[int]]:
+    whitelist:list[list[int]] = []
+
+    for prop in WHITELIST_PROPERTIES:
+        for row in query_wdqs(f'SELECT ?item ?item2 WHERE {{ ?item wdt:{prop} ?item2 . MINUS {{ ?item rdf:type wikibase:Property }} MINUS {{ ?item rdf:type ontolex:LexicalEntry }} }}'):
+            try:
+                qid_num_1 = int(row.get('item', {}).get('value', '').replace(WD_NUM, ''))
+                qid_num_2 = int(row.get('item2', {}).get('value', '').replace(WD_NUM, ''))
+            except ValueError:  # avoid issues with somevalue results and so on
+                continue
+
+            whitelist.append(
+                [
+                    qid_num_1,
+                    qid_num_2,
+                ]
+            )
+
+    return whitelist
+
+
+def load_whitelist_from_do_not_merge() -> list[list[int]]:
+    whitelist:list[list[int]] = []
+
+    response = requests.get(
+        url=WD_API_ENDPOINT,
+        params={
+            'action' : 'query',
+            'list' : 'allpages',
+            'apprefix' : 'Do not merge/',
+            'apnamespace' : '4',
+            'aplimit' : '500',
+            'format' : 'json',
+        }
+    )
+
+    data = response.json()
+
+    for page_dct in data.get('query', {}).get('allpages', []):
+        page = pwb.Page(SITE, page_dct.get('title', ''))
+
+        if page.isRedirectPage():
+            continue
+
+        text = page.get()
+
+        for match in re.findall(r'Q(\d+)(.*)Q(\d+)', text):
+            whitelist.append(
+                [
+                    int(match[0]),
+                    int(match[2]),
+                ]
+            )
+
+    return whitelist
+
+
+def query_backlog(argv:str) -> list[dict[str, Any]]:
+    with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
+        cur.execute('UPDATE merge_status SET update_running="0000-00-00 00:00:00" WHERE TIMESTAMPDIFF(DAY, update_running, NOW())>1')
+        conn.commit()
+
+        # select which lists need an update
+        if argv == 'all':
+            cur.execute(f'SELECT id, wiki1, wiki2, CONVERT(cat1 USING utf8) AS cat1, CONVERT(cat2 USING utf8) AS cat2 FROM merge_status WHERE TIMESTAMPDIFF(DAY, last_update, NOW())>6 AND update_running="0000-00-00 00:00:00" LIMIT {ALL_INCREMENT}')
+        elif argv == 'upd':
+            cur.execute('SELECT id, wiki1, wiki2, CONVERT(cat1 USING utf8) AS cat1, CONVERT(cat2 USING utf8) AS cat2 FROM merge_status WHERE update_requested>last_update AND update_running="0000-00-00 00:00:00"')
+        else:
+            raise RuntimeError(f'Invalid argv "{argv}" provided (only "all" and "upd" are allowed)')
+
+        result = cur.fetchall()
+
+    return result
+
+
+def make_interwiki_prefix(dbname:str) -> str:
+    suffixes = {
+        'wiki' : '',
+        'wikiquote' : 'q:',
+        'wikisource' : 's:',
+        'wikivoyage' : 'voy:',
+        'wikinews' : 'n:',
+        'wikibooks' : 'b:',
+        'wikiversity' : 'v:',
+        'wiktionary' : 'wikt:',
+        'species' : 'species:',
+    }
+
+    for suffix, short in suffixes.items():
+        if dbname.endswith(suffix):
+            return f'{short}{dbname[:-1*len(suffix)]}'.replace('_', '-')
+
+    raise RuntimeError(f'Cannot determine interwiki prefix for {dbname}')
 
 
 def main():
-    #create whitelist
-    
-    # from Do_not_merge
-    r = requests.get('https://www.wikidata.org/w/api.php?action=query&list=allpages&apprefix=Do%20not%20merge/&apnamespace=4&aplimit=500&format=json')
-    data = r.json()
-    for p in data['query']['allpages']:
-        page = pywikibot.Page(site, p['title'])
-        if page.isRedirectPage():
-            continue
-        text = page.get()
-        res = re.findall(r'Q(\d+)(.*)Q(\d+)', text)
-        for m in res:
-            whitelist.append([int(m[0]), int(m[2])])
-            
-    # from links based on SPARQL
-    properties = ['P1889', 'P629', 'P747', 'P144', 'P4969']
-    for p in properties:
-        payload = {
-            'query': 'SELECT ?item ?item2 WHERE{ ?item wdt:'+p+' ?item2. minus { ?item rdf:type wikibase:Property } minus { ?item rdf:type ontolex:LexicalEntry } }',
-            'format': 'json'
-        }
-        r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql', params=payload)
-        try:
-            data = r.json()
-        except:
-            return 0
-        for m in data['results']['bindings']:
-            try:
-                whitelist.append([int(m['item']['value'].replace('http://www.wikidata.org/entity/Q', '')), int(m['item2']['value'].replace('http://www.wikidata.org/entity/Q', ''))])
-            except:
-                pass
+    try:
+        argv = sys.argv[1]
+    except:
+        return
+
+    backlog = query_backlog(argv)
+    if len(backlog) == 0:
+        return
+
+    #create whitelist from Do_not_merge and links based on sparql
+    whitelist = [
+        *load_whitelist_from_do_not_merge(),
+        *load_whitelist_from_sparql(),
+    ]
 
     #load all names
-    payload = {
-        'query': 'SELECT ?item WHERE { ?item wdt:P31/wdt:P279* wd:Q82799 }',
-        'format': 'json'
-    }
-    r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql?', params=payload)
-    data = r.json()
-    for m in data['results']['bindings']:
-        try:
-            names.append(int(m['item']['value'].replace('http://www.wikidata.org/entity/Q', '')))
-        except:
-            pass
+    names = load_names()
 
     #load all disam-items
-    payload = {
-        'query': 'SELECT ?item WHERE{ ?item wdt:P31/wdt:P279* wd:Q4167410 }',
-        'format': 'json'
-    }
-    r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql?', params=payload)
-    data = r.json()
-    for m in data['results']['bindings']:
-        if 'http://www.wikidata.org/entity/Q' in m['item']['value']:
-            disam.append(int(m['item']['value'].replace('http://www.wikidata.org/entity/Q', '')))
-    #------
-    # handle update which are running for more than 1 day like they are not running.
-    cnx2 = MySQLdb.connect(host="tools-db", db="s51591__main", read_default_file="replica.my.cnf", charset='utf8')
-    cur2 = cnx2.cursor()
-    cur2.execute('UPDATE merge_status SET update_running = "0000-00-00 00:00:00" WHERE TIMESTAMPDIFF(DAY,update_running,NOW()) > 1')
-    cnx2.commit() 
+    disam = load_disam()
 
-    # select which lists need an update
-    if sys.argv[1] == 'all':
-        cur2.execute('SELECT id, wiki1, wiki2, cat1, cat2 FROM merge_status WHERE TIMESTAMPDIFF(DAY,last_update,NOW()) > 6 AND update_running = "0000-00-00 00:00:00" LIMIT 150')
-    elif sys.argv[1] == 'upd':
-        cur2.execute('SELECT id, wiki1, wiki2, cat1, cat2 FROM merge_status WHERE update_requested > last_update AND update_running = "0000-00-00 00:00:00"')
-    else:
-        return 0
-   
-    for row in cur2.fetchall():
-        wiki1 = row[1]
-        wiki2 = row[2]
-        print(wiki1, wiki2)
-        wiki1s = False
-        wiki2s = False
-        if wiki1[-4:] == 'wiki':
-            wiki1s = wiki1[:-4]
-        elif wiki1[-9:] == 'wikiquote':
-            wiki1s = 'q:'+wiki1[:-9]
-        elif wiki1[-10:] == 'wikisource':
-            wiki1s = 's:'+wiki1[:-10]
-        elif wiki1[-10:] == 'wikivoyage':
-            wiki1s = 'voy:'+wiki1[:-10]
-        elif wiki1[-8:] == 'wikinews':
-            wiki1s = 'n:'+wiki1[:-8]
-        elif wiki1[-9:] == 'wikibooks':
-            wiki1s = 'b:'+wiki1[:-9]
-        elif wiki1[-11:] == 'wikiversity':
-            wiki1s = 'v:'+wiki1[:-11]
-        elif wiki1[-10:] == 'wiktionary':
-            wiki1s = 'wikt:'+wiki1[:-10]
+    for row in backlog:
+        merge_status_id = row.get('id')
+        dbname_1 = row.get('wiki1')
+        dbname_2 = row.get('wiki2')
+        cat_1 = row.get('cat1')
+        cat_2 = row.get('cat2')
 
-        if wiki2[-4:] == 'wiki':
-            wiki2s = wiki2[:-4]
-        elif wiki2[-9:] == 'wikiquote':
-            wiki2s = 'q:'+wiki2[:-9]
-        elif wiki2[-10:] == 'wikisource':
-            wiki2s = 's:'+wiki2[:-10]
-        elif wiki2[-10:] == 'wikivoyage':
-            wiki2s = 'voy:'+wiki2[:-10]
-        elif wiki2[-8:] == 'wikinews':
-            wiki2s = 'n:'+wiki2[:-8]
-        elif wiki2[-9:] == 'wikibooks':
-            wiki2s = 'b:'+wiki2[:-9]
-        elif wiki2[-11:] == 'wikiversity':
-            wiki2s = 'v:'+wiki2[:-11]
-        elif wiki2[-10:] == 'wiktionary':
-            wiki2s = 'wikt:'+wiki2[:-10]
-        print(wiki1s, wiki2s)
-        if wiki1s and wiki2s:
-            wiki1s = wiki1s.replace('_', '-')
-            wiki2s = wiki2s.replace('_', '-')
-            #try:
-            if True:
-                updateList(row[0], wiki1, wiki2, wiki1s, wiki2s, row[3], row[4])
-            '''except:
-                print('error updateList')
-                f1 = open('logs/merge-project-log.dat','a');
-                f1.write(time.strftime("%Y-%m-%d %H:%M (%Z)")+'\terror '+wiki1+' '+wiki2+'\n')
-                f1.close()'''
+        try:
+            interwiki_prefix_1 = make_interwiki_prefix(dbname_1)
+            interwiki_prefix_2 = make_interwiki_prefix(dbname_2)
+        except RuntimeError as exception:
+            print(dbname_1, dbname_2, exception)
+            continue
 
-if __name__ == "__main__":
+        update_list(whitelist, names, disam, merge_status_id, dbname_1, dbname_2, interwiki_prefix_1, interwiki_prefix_2, cat_1, cat_2)
+
+        #print('error update_list')
+        #with open(LOGFILE, mode='a') as file_handle:
+        #    file_handle.write(f'{strftime("%Y-%m-%d %H:%M (%Z)")}\terror {dbname_1} {dbname_2}\n')
+
+
+if __name__ == '__main__':
     main()

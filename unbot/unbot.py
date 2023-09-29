@@ -2,37 +2,81 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import MySQLdb
-import pywikibot
-import time
 from datetime import date, timedelta
+from os.path import expanduser
+from time import strftime
 
-site = pywikibot.Site('wikidata','wikidata')
+import mariadb
+import pywikibot
 
-header = 'A list of active bots during the last month without bot flag. Update: <onlyinclude>{0}</onlyinclude>\n\n{{| class="wikitable sortable" style="width:100%%; margin:auto;"\n|-\n! User !! Edits¹\n'
 
-table_row = '|-\n| {{{{User|{0}}}}} || {1}\n'
+HEADER = 'A list of active bots during the last month without bot flag. Update: <onlyinclude>{update_timestamp}</onlyinclude>\n\n{{| class="wikitable sortable" style="width:100%%; margin:auto;"\n|-\n! User !! Edits¹\n'
+TABLE_ROW = '|-\n| {{{{User|{user_name}}}}} || {cnt}\n'
+FOOTER = '|}\n\n¹edits in namespace 0 during the last 30 days\n[[Category:Database reports]]'
 
-footer = '|}\n\n¹edits in namespace 0 during the last 30 days\n[[Category:Database reports]]'
+USER_NAME_WHITELIST = [
+    'Paucabot',
+    'Reubot',
+]
 
-timestamp = date.today()-timedelta(days=30)
-query1 = 'SELECT rc_user_text, COUNT(*) FROM recentchanges WHERE rc_bot=0 AND rc_namespace=0 AND rc_timestamp > '+timestamp.strftime('%Y%m%d000000')+' AND (rc_user_text LIKE "%bot" OR rc_user_text LIKE "%Bot") GROUP BY rc_user_text HAVING rc_user_text NOT IN (SELECT user_name FROM user JOIN user_groups ON user_id=ug_user WHERE ug_group="bot")'
 
-def makeReport(db):
-	cursor = db.cursor()
-	cursor.execute(query1)
-	text = ''
-	for user, cnt in cursor:
-		if not user == 'Paucabot' and not user == 'Reubot': #whitelist
-			text += table_row.format(user,cnt)
-	return text
+def make_report() -> str:
+    db = mariadb.connect(
+        host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+        database='wikidatawiki_p',
+        default_file=f'{expanduser("~")}/replica.my.cnf',
+    )
+    cursor = db.cursor(dictionary=True)
 
-def main():
-	page = pywikibot.Page(site,'Wikidata:Database reports/Unauthorized bots')
-	db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs",db="wikidatawiki_p", read_default_file="replica.my.cnf")
-	report = makeReport(db)
-	text = header.format(time.strftime("%Y-%m-%d %H:%M (%Z)")) + report + footer
-	page.put(text.decode('UTF-8'),summary='Bot:Updating database report',minorEdit=False)
+    query = """SELECT
+    CONVERT(rc_user_text USING utf8) AS user_name,
+    COUNT(*) AS cnt
+FROM
+    recentchanges
+WHERE
+    rc_bot=0
+    AND rc_namespace=0
+    AND rc_timestamp>%(rc_timestamp)s
+    AND (rc_user_text LIKE "%bot" OR rc_user_text LIKE "%Bot")
+GROUP BY
+    rc_user_text
+HAVING
+    rc_user_text NOT IN (
+        SELECT
+            user_name
+        FROM
+            user
+                JOIN user_groups ON user_id=ug_user
+        WHERE
+            ug_group="bot"
+    )"""
 
-if __name__ == "__main__":
-	main()
+    params = { 'rc_timestamp' : (date.today()-timedelta(days=30)).strftime('%Y%m%d000000')}
+
+    cursor.execute(query, params)
+    text = ''
+    for row in cursor:
+        user_name = row.get('user_name')
+        cnt = row.get('cnt')
+
+        if user_name is None or cnt is None:
+            continue
+
+        if user_name in USER_NAME_WHITELIST:
+            continue
+
+        text += TABLE_ROW.format(user_name=user_name, cnt=cnt)
+
+    return text
+
+
+def main() -> None:
+    text = HEADER.format(update_timestamp=strftime('%Y-%m-%d %H:%M (%Z)')) + make_report() + FOOTER
+
+    page = pywikibot.Page(pywikibot.Site('wikidata','wikidata'), 'Wikidata:Database reports/Unauthorized bots')
+    page.text = text
+    page.save(summary='Bot:Updating database report', minor=False)
+
+
+if __name__=='__main__':
+    main()

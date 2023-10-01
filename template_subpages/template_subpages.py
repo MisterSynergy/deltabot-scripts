@@ -17,7 +17,7 @@ def main() -> None:
     
     query = """SELECT
     ips_item_id,
-    ips_site_page
+    CONVERT(ips_site_page USING utf8) AS ips_site_page
 FROM
     wb_items_per_site
 WHERE

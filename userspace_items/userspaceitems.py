@@ -11,7 +11,7 @@ import pywikibot
 
 SITE = pywikibot.Site('wikidata', 'wikidata')
 REPORT_PAGE = 'Wikidata:Database reports/User pages'
-USERSPACE_NAMES_FILE = './reports/userspace_names.dat'
+USERSPACE_NAMES_FILE = f'{expanduser("~")}/jobs/userspace_items/userspace_names.dat'
 
 HEADER = f"""A list of pages with links to userspace. Update: <onlyinclude>{strftime('%Y-%m-%d %H:%M (%Z)')}</onlyinclude>
 

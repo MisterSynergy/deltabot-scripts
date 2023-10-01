@@ -32,7 +32,7 @@ def query_wdqs_chunk(query:str) -> list[dict[str, Any]]:
         },
         headers={
             'Accept' : 'application/sparql-results+json',
-            'User-Agent': f'{requests.utils.default_user_agent()} (duplicate_arts.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)',
+            'User-Agent': f'{requests.utils.default_user_agent()} (implausible_age.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)',
         }
     )
 

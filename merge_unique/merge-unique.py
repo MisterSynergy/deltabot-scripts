@@ -4,74 +4,117 @@
 
 #providing a list with unique violations, the script looks for merge candidates. Preferable, the list should only contains items from the same namespace
 
-import MySQLdb
-import time
-import pywikibot
+from os.path import expanduser
 import re
+from typing import Generator
 
-site = pywikibot.Site('wikidata','wikidata')
-db = MySQLdb.connect(host='wikidatawiki.analytics.db.svc.eqiad.wmflabs', db='wikidatawiki_p', read_default_file='replica.my.cnf')
-cur = db.cursor()
-whitelist = []
+import mariadb
+import pywikibot as pwb
 
-props = ['P301', 'P94', 'P41', 'P646', 'P494', 'P229', 'P225', 'P910', 'P685', 'P442', 'P1566']
 
-def getItems(p):
-    page = pywikibot.Page(site,'Wikidata:Database_reports/Constraint violations/'+p)
+SITE = pwb.Site('wikidata','wikidata')
+
+PROPERTIES = [ 'P301', 'P94', 'P41', 'P646', 'P494', 'P229', 'P225', 'P910', 'P685', 'P442', 'P1566' ]
+
+
+def get_items(db, prop:str) -> Generator[tuple[str, str, str], None, None]:
+    page = pwb.Page(SITE, f'Wikidata:Database_reports/Constraint violations/{prop}')
     text = page.get()
-    res = re.search(r'== "Unique value" violations ==([^=]+)', text)
-    if res:
-        lines = res.group(1).split('\n')
-        for line in lines:
-            line = line.strip()
-            if ': [[Q' in line:
-                line = line.split(': ')    
-                elements = line[1].split(', ')
-                for i in range(0,len(elements)-1):
-                    for j in range(i+1,len(elements)):
-                        cur.execute('SELECT a.ips_site_id FROM wb_items_per_site a INNER JOIN wb_items_per_site b ON a.ips_site_id = b.ips_site_id WHERE a.ips_item_id = "'+elements[i][3:-2]+'" AND b.ips_item_id = "'+elements[j][3:-2]+'"')
-                        if cur.rowcount == 0:
-                            yield (elements[i][3:-2],elements[j][3:-2],line[0])
 
-def updateList(p):
-    gen = getItems(p)
+    res = re.search(r'== "Unique value" violations ==([^=]+)', text)
+    if not res:
+        return
+
+    cur = db.cursor(dictionary=True)
+    for line in res.group(1).split('\n'):
+        line = line.strip()
+        if ': [[Q' not in line:
+            continue
+
+        parts = line.split(': ')
+        elements = parts[1].split(', ')
+
+        for i in range(0, len(elements)-1):
+            for j in range(i+1, len(elements)):
+                query = """SELECT
+                    a.ips_site_id
+                FROM
+                    wb_items_per_site AS a
+                        INNER JOIN wb_items_per_site AS b ON a.ips_site_id=b.ips_site_id
+                WHERE
+                    a.ips_item_id=%(qid1)s
+                    AND b.ips_item_id=%(qid2)s"""
+
+                params = { 'qid1' : elements[i][3:-2], 'qid2' : elements[j][3:-2] }
+
+                cur.execute(query, params)
+                if cur.rowcount==0:
+                    yield (elements[i][3:-2], elements[j][3:-2], parts[0])
+
+    cur.close()
+
+
+def update_list(db, prop:str, whitelist:list[tuple[int, int]]) -> None:
+    gen = get_items(db, prop)
+    if gen is None:
+        return
+
     pretext = ''
     accepted = 0
     excluded = 0
     for row in gen:
-        if [row[0],row[1]] in whitelist or [row[1],row[0]] in whitelist:
+        if [row[0], row[1]] in whitelist or [row[1], row[0]] in whitelist:
             excluded+=1
         else:
             accepted+=1
             if accepted < 5000:
-                pretext += row[2]+': {{Q|'+str(row[0])+'}}, {{Q|'+str(row[1])+'}}\n'
+                pretext += f'{row[2]}: {{{{Q|{row[0]}}}}}, {{{{Q|{row[1]}}}}}\n'
 
     #write text
-    text = u'Merge candidates based on same {{P|'+p+'}} value.\n\n'
-    text += u'Found '+str(excluded+accepted)+' merge candiates, excluding '+str(excluded)+' candidates from the [[Wikidata:Do not merge|whitelist]] leads to '+str(accepted)+' remaining candidates.\n\n'
-    if (accepted) != 0:
-        text += u'== Merge candidates ==\n' + pretext
+    text = f'Merge candidates based on same {{{{P|{prop}}}}} value.\n\n'
+    text += f'Found {excluded+accepted} merge candiates, excluding {excluded} candidates from the [[Wikidata:Do not merge|whitelist]] leads to {accepted} remaining candidates.\n\n'
+
+    if accepted>0:
+        text += f'== Merge candidates ==\n{pretext}'
+
     if accepted > 5000:
         skipped = accepted-5000
-        text += '\nSkipping ' + str(skipped) + 'records\n'
+        text += f'\nSkipping {skipped} records\n'
+
     #write to wikidata
-    page = pywikibot.Page(site, 'User:Pasleim/uniquemerge/'+p)
-    page.put(text, summary='upd', minorEdit=False)
+    page = pwb.Page(SITE, f'User:Pasleim/uniquemerge/{prop}')
+    page.text = text
+    page.save(summary='upd', minor=False)
 
-def main():
+
+def get_whitelist() -> list[tuple[int, int]]:
     #create whitelist
-    page = pywikibot.Page(site,'Wikidata:Do not merge')
+    page = pwb.Page(SITE, 'Wikidata:Do not merge')
     text = page.get()
-    res = re.findall(r'Q(\d+)(.*)Q(\d+)', text)
-    for m in res:
-        whitelist.append([int(m[0]), int(m[2])])
 
-    for p in props:
-        try:
-            updateList(p)
-        except:
-            pass
+    whitelist = []
+    for match in re.findall(r'Q(\d+)(.*)Q(\d+)', text):
+        whitelist.append(
+            (
+                int(match[0]),
+                int(match[2]),
+            )
+        )
+
+    return whitelist
+
+
+def main() -> None:
+    db = mariadb.connect(
+        host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+        database='wikidatawiki_p',
+        default_file=f'{expanduser("~")}/replica.my.cnf'
+    )
+    
+    whitelist = get_whitelist()
+    for prop in PROPERTIES:
+        update_list(db, prop, whitelist)
+
 
 if __name__ == '__main__':
     main()
-

@@ -29,19 +29,20 @@ def make_report() -> str:
     cursor = db.cursor(dictionary=True)
 
     query = """SELECT
-    CONVERT(rc_user_text USING utf8) AS user_name,
+    CONVERT(actor_name USING utf8) AS user_name,
     COUNT(*) AS cnt
 FROM
     recentchanges
+        JOIN actor_recentchanges ON rc_actor=actor_id
 WHERE
     rc_bot=0
     AND rc_namespace=0
     AND rc_timestamp>%(rc_timestamp)s
-    AND (rc_user_text LIKE "%bot" OR rc_user_text LIKE "%Bot")
+    AND (actor_name LIKE "%bot" OR actor_name LIKE "%Bot")
 GROUP BY
-    rc_user_text
+    actor_name
 HAVING
-    rc_user_text NOT IN (
+    actor_name NOT IN (
         SELECT
             user_name
         FROM

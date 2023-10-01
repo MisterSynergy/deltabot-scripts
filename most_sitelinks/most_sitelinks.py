@@ -2,35 +2,53 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import MySQLdb
-import pywikibot
-import time
+from os.path import expanduser
+from time import strftime
 
-site = pywikibot.Site('wikidata','wikidata')
+import mariadb
+import pywikibot as pwb
 
-header = 'A list of items with the most sitelinks. Data as of <onlyinclude>{0}</onlyinclude>.\n\n{{| class="wikitable sortable" style="width:100%%; margin:auto;"\n|-\n! Item !! Sitelinks\n'
 
-table_row = '|-\n| {{{{Q|{0}}}}} || {1}\n'
+HEADER = 'A list of items with the most sitelinks. Data as of <onlyinclude>{update_timestamp}</onlyinclude>.\n\n{{| class="wikitable sortable" style="width:100%; margin:auto;"\n|-\n! Item !! Sitelinks\n'
+TABLE_ROW = '|-\n| {{{{Q|{qid}}}}} || {cnt}\n'
+FOOTER = '|}\n\n[[Category:Wikidata statistics|Most sitelinked items]] [[Category:Database reports|Most sitelinked items]]'
 
-footer = '|}\n\n[[Category:Wikidata statistics|Most sitelinked items]] [[Category:Database reports|Most sitelinked items]]'
 
-query1 = 'SELECT ips_item_id, count(*) AS cnt FROM wb_items_per_site GROUP BY ips_item_id ORDER BY cnt DESC LIMIT 100'
+def make_report() -> str:
+    db = mariadb.connect(
+        host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+        database='wikidatawiki_p',
+        default_file=f'{expanduser("~")}/replica.my.cnf'
+    )
+    cur = db.cursor(dictionary=True)
 
-def makeReport(db):
-    cursor = db.cursor()
-    cursor.execute(query1)
+    query = 'SELECT ips_item_id, COUNT(*) AS cnt FROM wb_items_per_site GROUP BY ips_item_id ORDER BY cnt DESC LIMIT 100'
+    cur.execute(query)
+
     text = ''
-    for item, cnt in cursor:
-        text += table_row.format(item,cnt)
+    for row in cur:
+        qid = row.get('ips_item_id')
+        cnt = row.get('cnt')
+
+        if qid is None or cnt is None:
+            continue
+
+        text += TABLE_ROW.format(qid=qid, cnt=cnt)
+
+    cur.close()
+    db.close()
+
     return text
 
-def main():
-    page = pywikibot.Page(site,'Wikidata:Database reports/Most sitelinked items')
-    db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs", db="wikidatawiki_p", read_default_file="replica.my.cnf")
-    report = makeReport(db)
-    text = header.format(time.strftime("%Y-%m-%d %H:%M (%Z)")) + report + footer
-    page.put(text, summary='Bot:Updating database report', minorEdit=False)
 
-if __name__ == "__main__":
+def main() -> None:
+    text = HEADER.format(update_timestamp=strftime('%Y-%m-%d %H:%M (%Z)')) + make_report() + FOOTER
+
+    page = pwb.Page(pwb.Site('wikidata', 'wikidata'), 'Wikidata:Database reports/Most sitelinked items')
+    page.text = text
+    page.save(summary='Bot:Updating database report', minor=False)
+
+
+if __name__ == '__main__':
     main()
 

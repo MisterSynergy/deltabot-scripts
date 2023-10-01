@@ -1,7 +1,8 @@
 # -*- coding: utf-8  -*-
 
+from json.decoder import JSONDecodeError
 from time import strftime
-from typing import Generator
+from typing import Any
 
 import requests
 import pywikibot as pwb
@@ -23,22 +24,73 @@ TABLE_ROW = """|-
 """
 
 
-def query_wdqs(query) -> Generator[str, None, None] :
-    response = requests.get(
-        'https://query.wikidata.org/bigdata/namespace/wdq/sparql',
-        params= {
+def query_wdqs_chunk(query:str) -> list[dict[str, Any]]:
+    response = requests.post(
+        url='https://query.wikidata.org/bigdata/namespace/wdq/sparql',
+        data={
             'query' : query,
         },
         headers={
             'Accept' : 'application/sparql-results+json',
-            'User-Agent': f'{requests.utils.default_user_agent()} (duplicate_arts.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+            'User-Agent': f'{requests.utils.default_user_agent()} (duplicate_arts.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)',
         }
     )
 
-    payload = response.json()
-    for row in payload.get('results', {}).get('bindings', []):
-        qid = row.get('entity', {}).get('value', '')[len('http://www.wikidata.org/entity/'):]
-        yield qid
+    try:
+        payload = response.json()
+    except JSONDecodeError as exception:
+        if 'offset is out of range' in response.text:
+            return []
+
+        raise RuntimeWarning('Cannot parse WDQS response as JSON') from exception
+
+    return payload.get('results', {}).get('bindings', [])
+
+
+def query_wdqs_chunked(query_part:str) -> list[str]:
+    query_template = """SELECT DISTINCT ?item WITH {{
+  SELECT ?item WHERE {{
+    SERVICE bd:slice {{
+      ?item wdt:P31 wd:Q5 .
+      bd:serviceParam bd:slice.offset {offset} .
+      bd:serviceParam bd:slice.limit {limit} .
+    }}
+  }}
+}} AS %subquery WHERE {{
+  INCLUDE %subquery .
+
+  {query_part}
+}}"""
+
+    offset = 0
+    limit = 500_000
+
+    qids = []
+
+    while True:
+        query = query_template.format(
+            offset=offset,
+            limit=limit,
+            query_part=query_part,
+        )
+
+        try:
+            chunk = query_wdqs_chunk(query)
+        except RuntimeWarning as exception:
+            print(f'Failed to query {limit} sets from offset {offset}; exception: {exception}; query: {query}')
+            offset += limit
+            continue
+
+        if len(chunk) == 0:
+            break
+
+        for row in chunk:
+            qid = row.get('item', {}).get('value', '')[len('http://www.wikidata.org/entity/'):]
+            qids.append(qid)
+
+        offset += limit
+
+    return qids
 
 
 def calculate_age(dob_year:int, dob_month:int, dob_day:int, dod_year:int, dod_month:int, dod_day:int) -> int:
@@ -55,12 +107,16 @@ def add_row(qid:str) -> str:
     item = pwb.ItemPage(REPO, qid)
     dict = item.get()
     for dob_claim in dict['claims'].get('P569', []):
+        if dob_claim.getSnakType() != 'value':
+            continue
         if dob_claim.getTarget().precision < 9:  # 9 = year
             continue
         if dob_claim.rank=='deprecated':
             continue
 
         for dod_claim in dict['claims'].get('P570', []):
+            if dod_claim.getSnakType() != 'value':
+                continue
             if dod_claim.getTarget().precision < 9:
                 continue
             if dod_claim.rank=='deprecated':
@@ -91,14 +147,24 @@ def add_row(qid:str) -> str:
 
 
 def make_report() -> str:
-    queries = [  # including precision times out
-        'SELECT DISTINCT ?entity WHERE {?entity wdt:P31 wd:Q5; wdt:P569 ?dob; wdt:P570 ?dod . FILTER (year(?dod) - year(?dob) > 130) } ORDER BY ?entity', # check if death date is 130 bigger than birth date
-        'SELECT DISTINCT ?entity WHERE {?entity wdt:P31 wd:Q5; wdt:P569 ?dob; wdt:P570 ?dod . FILTER (year(?dod) < year(?dob)) } ORDER BY ?entity',  # check if birth date is smaller than death date
+    query_fragment = """  ?item p:P570 [ psv:P570 [ wikibase:timeValue ?dod; wikibase:timePrecision ?dod_precision ]; wikibase:rank ?dod_rank ].
+  FILTER(?dod_precision >= 9) .
+  FILTER(?dod_rank != wikibase:DeprecatedRank) .
+
+  ?item p:P569 [ psv:P569 [ wikibase:timeValue ?dob; wikibase:timePrecision ?dob_precision ]; wikibase:rank ?dob_rank ] .
+  FILTER(?dob_precision >= 9) .
+  FILTER(?dob_rank != wikibase:DeprecatedRank) .
+
+  """
+
+    query_parts = [  # including precision times out
+        f"""{query_fragment}FILTER(YEAR(?dod) - YEAR(?dob) > 130) .""", # check if death date is 130 bigger than birth date
+        f"""{query_fragment}FILTER(YEAR(?dod) < YEAR(?dob)) .""",  # check if birth year is smaller than death year
     ]
 
     text = ''
-    for query in queries:
-        for qid in query_wdqs(query):
+    for query_part in query_parts:
+        for qid in query_wdqs_chunked(query_part):
             try:
                 text += add_row(qid)
             except RuntimeWarning as exception:
@@ -108,11 +174,17 @@ def make_report() -> str:
 
 
 def main() -> None:
-    text = HEADER.format(update_timestamp=strftime('%H:%M, %d %B %Y (%Z)')) + make_report() + FOOTER
-    
-    page = pwb.Page(SITE, 'User:Pasleim/Implausible/age')
-    page.text = text
-    page.save(summary='upd', minor=False)
+    try:
+        report = make_report()
+    except RuntimeError as exception:
+        print(exception)
+    else:
+        if len(report) > 0:
+            text = HEADER.format(update_timestamp=strftime('%H:%M, %d %B %Y (%Z)')) + report + FOOTER
+
+            page = pwb.Page(SITE, 'User:Pasleim/Implausible/age')
+            page.text = text
+            page.save(summary='upd', minor=False)
 
 
 if __name__=='__main__':

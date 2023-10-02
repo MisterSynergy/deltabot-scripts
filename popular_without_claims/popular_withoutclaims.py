@@ -56,7 +56,7 @@ LIMIT
 
 QUERY_2 = """SELECT
     CONVERT(page_title USING utf8) AS qid,
-    ppsitelinks.pp_value AS cnt
+    CONVERT(ppsitelinks.pp_value USING utf8) AS cnt
 FROM
     page_props AS ppclaims
         JOIN page ON ppclaims.pp_page=page_id AND page_namespace=0 AND page_is_redirect=0
@@ -70,7 +70,7 @@ LIMIT
     100"""
 
 
-def make_report(db, query) -> str:
+def make_report(db, query:str) -> str:
     cursor = db.cursor(dictionary=True)
     cursor.execute(query)
 
@@ -83,6 +83,8 @@ def make_report(db, query) -> str:
             continue
 
         text += TABLE_ROW.format(qid=qid, cnt=cnt)
+
+    cursor.close()
 
     return text
 

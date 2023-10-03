@@ -134,9 +134,8 @@ def edit_is_false_positive(qid:str, term:str, lang:str) -> bool:
             return True
 
     if f'{lang}wiki' in dct['sitelinks']:
-        local_site = pywikibot.Site(lang, 'wikipedia')
-        local_page = pywikibot.Page(local_site, dct['sitelinks'][f'{lang}wiki'])
-
+        local_page = dct['sitelinks'][f'{lang}wiki']
+        
         text = re.sub('\[\[[^\]]+\|', '', local_page.get())
         text = re.sub('\[\[|\]\]', '', text)
 
@@ -207,6 +206,9 @@ def new_edits(text:str) -> str:
                 continue
 
             magic_edit_summary = comment.split(' */ ')
+            if len(magic_edit_summary) < 2:
+                continue
+
             term = magic_edit_summary[1].strip()
             meta = magic_edit_summary[0].split('|')
             lang = meta[1]

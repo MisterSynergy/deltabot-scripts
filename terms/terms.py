@@ -9,7 +9,6 @@ from typing import Generator, Optional
 import mariadb
 import pywikibot as pwb
 
-
 class Replica:
     def __init__(self) -> None:
         self.connection = mariadb.connect(
@@ -40,11 +39,11 @@ def get_total_pages() -> Optional[int]:
 
 def get_languages() -> Generator[str, None, None]:
     with Replica() as cur:
-        query = 'SELECT DISTINCT CONVERT(term_language USING utf8) AS term_language FROM wb_terms'
+        query = 'SELECT DISTINCT CONVERT(wbxl_language USING utf8) AS wbxl_language FROM wbt_text_in_lang'
         cur.execute(query)
 
         for row in cur.fetchall():
-            lang = row.get('term_language')
+            lang = row.get('wbxl_language')
             if lang is None:
                 continue
 
@@ -53,7 +52,7 @@ def get_languages() -> Generator[str, None, None]:
 
 def get_label_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
     with Replica() as cur:
-        query = 'SELECT COUNT(*) AS cnt FROM wb_terms WHERE term_entity_type="item" AND term_type="label" AND term_language=%(lang)s'
+        query = 'SELECT COUNT(*) AS cnt FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="label" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }
             cur.execute(query, params)
@@ -68,7 +67,7 @@ def get_label_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
 
 def get_description_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
     with Replica() as cur:
-        query = 'SELECT COUNT(*) AS cnt FROM wb_terms WHERE term_entity_type="item" AND term_type="description" AND term_language=%(lang)s'
+        query = 'SELECT COUNT(*) AS cnt FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="description" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }
             cur.execute(query, params)
@@ -83,7 +82,7 @@ def get_description_counts(langs:list[str]) -> Generator[tuple[str, int], None, 
 
 def get_alias_counts(langs:list[str]) -> Generator[tuple[str, int, int], None, None]:
     with Replica() as cur:
-        query = 'SELECT COUNT(*) AS cnt, COUNT(DISTINCT(term_entity_id)) AS cnt_distinct FROM wb_terms WHERE term_entity_type="item" AND term_type="alias" AND term_language=%(lang)s'
+        query = 'SELECT COUNT(*) AS cnt, COUNT(DISTINCT(wbit_item_id)) AS cnt_distinct FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="alias" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }
             cur.execute(query, params)
@@ -104,6 +103,7 @@ def make_header(total:int) -> str:
     text += '{| class="wikitable sortable"\n|-\n! Language code\n! Language (English)\n! Language (native)\n! data-sort-type="number"|# of labels\n! data-sort-type="number"|# of descriptions\n! data-sort-type="number"|# of aliases\n! data-sort-type="number"|# of items with aliases\n'
 
     return text
+
 
 def make_footer(text:str) -> str:
     text += '|}\n\n[[Category:Wikidata statistics|Language statistics]]'

@@ -238,7 +238,7 @@ def make_overview() -> tuple[str, int, int]:
 
         idx += 1
         with Replica() as (_, cur):
-            cur.execute(QUERY_2, params={ 'dbname' : dbname })
+            cur.execute(QUERY_2, { 'dbname' : dbname })
 
             for cnt_without in cur:
                 cnt = cnt_without.get('cnt')

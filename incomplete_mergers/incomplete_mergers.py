@@ -168,7 +168,7 @@ def check(q1):
 
 
 def main():
-    time_file = f'{expanduser("~")}/jobs/uncomplete_mergers/uncompleteMerges_time.dat'
+    time_file = f'{expanduser("~")}/jobs/incomplete_mergers/incomplete_mergers_time.dat'
     with open(time_file, 'r') as file_handle:
         done_until_str = file_handle.read()
 

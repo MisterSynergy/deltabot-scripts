@@ -97,21 +97,21 @@ def create_report(p1:str, results:dict[str, list[str]], counts:dict[str, int]) -
 
 def create_lists(properties:list[str]) -> None:
     sparql = """SELECT ?item WHERE {{
-    ?item wdt:{p1} ?foo1 .
+    ?item wdt:{p1} [] .
     ?item wdt:P31 wd:Q5 .
     OPTIONAL {{
-        ?item wdt:{p2} ?novalue
+        ?item wdt:{p2} ?missing .
     }}
-    FILTER(!BOUND(?novalue))
+    FILTER(!BOUND(?missing)) .
 }} ORDER BY ?item LIMIT 1000"""
 
     sparql_count = """SELECT (COUNT(DISTINCT ?item) AS ?cnt) WHERE {{
-    ?item wdt:{p1} ?foo1 .
+    ?item wdt:{p1} [] .
     ?item wdt:P31 wd:Q5 .
     OPTIONAL {{
-        ?item wdt:{p2} ?novalue
+        ?item wdt:{p2} ?missing .
     }}
-    FILTER(!BOUND(?novalue))
+    FILTER(!BOUND(?missing)) .
 }}"""
 
     counts:dict[str, dict[str, int]] = {}

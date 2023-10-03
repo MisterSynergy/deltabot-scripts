@@ -121,8 +121,17 @@ def create_lists(properties:list[str]) -> None:
         for p2 in MISSING_PROPERTIES:
             results[p2] = []
             
-            payload_1 = query_wdqs(sparql.format(p1=p1, p2=p2))
-            payload_2 = query_wdqs(sparql_count.format(p1=p1, p2=p2))
+            try:
+                payload_1 = query_wdqs(sparql.format(p1=p1, p2=p2))
+            except RuntimeWarning as exception:  # TODO: times out sometimes
+                print(f'{exception} for {p1} and {p2}/main query')
+                continue
+
+            try:
+                payload_2 = query_wdqs(sparql_count.format(p1=p1, p2=p2))
+            except RuntimeWarning as exception:  # TODO: times out sometimes
+                print(f'{exception} for {p1} and {p2}/count query')
+                continue
 
             for row in payload_1:
                 qid = row.get('item', {}).get('value', '')[len('http://www.wikidata.org/entity/'):]

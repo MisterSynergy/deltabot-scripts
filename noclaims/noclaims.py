@@ -5,7 +5,7 @@
 from dataclasses import dataclass, field
 from json.decoder import JSONDecodeError
 from os.path import expanduser
-import time
+from time import sleep, strftime
 from typing import Generator
 
 import mariadb
@@ -177,7 +177,10 @@ class Replica:
         self.connection.close()
 
 
-def query_wdqs(query:str) -> Generator[dict, None, None]:
+def query_wdqs(query:str, *, retry_credit:int=3) -> dict:
+    if retry_credit <= 0:
+        raise RuntimeError('No credit left for querying')
+
     response = requests.post(
         url=WDQS_ENDPOINT,
         data={
@@ -191,9 +194,19 @@ def query_wdqs(query:str) -> Generator[dict, None, None]:
     )
 
     try:
-        data = response.json()
+        payload = response.json()
     except JSONDecodeError as exception:
+        if response.elapsed.total_seconds() > 55 and retry_credit-1 > 0:
+            sleep(60)
+            return query_wdqs(query, retry_credit=retry_credit-1)
+
         raise RuntimeError('Cannot parse result from SPARQL endpoint') from exception
+
+    return payload
+
+
+def query_wdqs_generator(query:str) -> Generator[dict, None, None]:
+    data = query_wdqs(query)
 
     for row in data.get('results', {}).get('bindings', []):
         yield row
@@ -202,7 +215,7 @@ def query_wdqs(query:str) -> Generator[dict, None, None]:
 def make_report(project:Project) -> str:
     text = ''
 
-    for row in query_wdqs(SPARQL_QUERY.format(url=project.url)):
+    for row in query_wdqs_generator(SPARQL_QUERY.format(url=project.url)):
         qid = row.get('item', {}).get('value', '').replace(WD, '')
         page_title = row.get('lemma', {}).get('value', '')
         text += TABLE_ROW.format(
@@ -269,7 +282,7 @@ def main():
         project = Project(dbname)
 
         report = make_report(project)
-        text = f'{HEADER.format(lang_code=project.lang, timestamp=time.strftime("%Y-%m-%d %H:%M (%Z)"))}{report}'
+        text = f'{HEADER.format(lang_code=project.lang, timestamp=strftime("%Y-%m-%d %H:%M (%Z)"))}{report}'
 
         page = pwb.Page(SITE, f'Wikidata:Database reports/without claims by site/{dbname}')
         page.text = text
@@ -278,7 +291,7 @@ def main():
 
     report, idx, max_value = make_overview()
     stat = f'{{{{DR otherreport|max={max_value}|reportlength={idx}}}}}\n'
-    text = stat + HEADER_OVERVIEW.format(timestamp=time.strftime("%Y-%m-%d %H:%M (%Z)")) + report + FOOTER_OVERVIEW
+    text = stat + HEADER_OVERVIEW.format(timestamp=strftime("%Y-%m-%d %H:%M (%Z)")) + report + FOOTER_OVERVIEW
     summary = f'Bot: Updating database report: reportlength: {idx}; max: {max_value}'
 
     page = pwb.Page(SITE, 'Wikidata:Database reports/without claims by site')

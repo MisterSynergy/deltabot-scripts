@@ -110,7 +110,7 @@ def main() -> None:
         database='wikidatawiki_p',
         default_file=f'{expanduser("~")}/replica.my.cnf'
     )
-    
+
     whitelist = get_whitelist()
     for prop in PROPERTIES:
         update_list(db, prop, whitelist)

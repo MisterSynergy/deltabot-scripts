@@ -1,115 +1,234 @@
 # -*- coding: UTF-8 -*-
 # licensed under MIT: http://opensource.org/licenses/MIT
 
-import MySQLdb
-import time
-import pywikibot
+from os.path import expanduser
+from time import strftime
+from typing import Optional
 
-db = MySQLdb.connect(host="wikidatawiki.analytics.db.svc.eqiad.wmflabs",
-                     db="wikidatawiki_p", read_default_file="replica.my.cnf")
-cur = db.cursor()
+import mariadb
+import pywikibot as pwb
 
-cur.execute(
-    "SELECT count(*) FROM page WHERE page_namespace = 0 ANd page_is_redirect=0")
-blo = cur.fetchall()
-total = blo[0][0]
-cur.execute("SELECT count(*) FROM wb_items_per_site")
-blo = cur.fetchall()
-allLinks = blo[0][0]
 
-pedia = 0
-voyage = 0
-source = 0
-quote = 0
-news = 0
-books = 0
-versity = 0
-wiktionary = 0
-other = 0
+def get_total_count(cur) -> Optional[int]:
+    cur.execute('SELECT COUNT(*) AS cnt FROM page WHERE page_namespace=0 AND page_is_redirect=0')
+    blo = cur.fetchall()
+    cnt = blo[0].get('cnt')
 
-text = 'Update: <onlyinclude>' + \
-    time.strftime("%Y-%m-%d %H:%M (%Z)")+'</onlyinclude>.\n\n'
-text += 'Total items: '+('{:,}'.format(total))+'\n\n'
-text += '== Number of sitelinks ==\n'
+    return cnt
 
-# number of sitelinks per project
-text += '{|\n|- style="vertical-align:top;"\n|\n{| class="wikitable sortable" style="margin-right:50px;"\n|+ Sitelinks per project\n|-\n! Project\n! data-sort-type="number"|# of sitelinks\n'
 
-cur.execute(
-    "SELECT ips_site_id, count(*) FROM wb_items_per_site GROUP BY ips_site_id ORDER BY ips_site_id")
+def get_all_links_count(cur) -> Optional[int]:
+    cur.execute('SELECT COUNT(*) AS cnt FROM wb_items_per_site')
+    blo = cur.fetchall()
+    cnt = blo[0].get('cnt')
 
-for row in cur.fetchall():
-    sitetype = row[0].decode()
-    if 'voyage' in sitetype:
-        text += '|- style="background: Bisque"\n'
-        voyage += row[1]
-    elif 'source' in sitetype:
-        text += '|- style="background: LightCyan"\n'
-        source += row[1]
-    elif 'commonswiki' == sitetype or 'wikidatawiki' == sitetype or 'specieswiki' == sitetype or 'metawiki' == sitetype or 'mediawikiwiki' == sitetype:
-        text += '|- style="background: SkyBlue"\n'
-        other += row[1]
-    elif 'quote' in sitetype:
-        text += '|- style="background: MistyRose"\n'
-        quote += row[1]
-    elif 'news' in sitetype:
-        text += '|- style="background: PaleGreen"\n'
-        news += row[1]
-    elif 'books' in sitetype:
-        text += '|- style="background: #E9DDAF"\n'
-        books += row[1]
-    elif 'wiktionary' in sitetype:
-        text += '|- style="background: #CCF9CC"\n'
-        wiktionary += row[1]
-    elif 'versity' in sitetype:
-        text += '|- style="background: #CFDBC5"\n'
-        versity += row[1]
+    return cnt
 
-    else:
-        text += '|-\n'
-        pedia += row[1]
-    text += '| '+sitetype+' || '+('{:,}'.format(row[1]))+'\n'
 
-text += '|-\n! Total !! '+('{:,}'.format(allLinks)) + \
-    ' ('+str(round(allLinks/(float)(total), 2))+' per Item)\n'
-text += '|}\n|\n'
+def get_project_and_family_counts(cur) -> tuple[dict[str, int], dict[str, int]]:
+    project_counts:dict[str, int] = {}
+    family_counts:dict[str, int] = {}
 
-# summary
-text += '{| class="wikitable sortable" style="margin-right:50px;"\n|+ Summary\n|-\n! Projects\n! data-sort-type="number"|# of sitelinks\n|-\n| wikipedia || '+('{:,}'.format(pedia))+'\n|- style="background: Bisque"\n| wikivoyage || '+('{:,}'.format(voyage))+'\n|- style="background: LightCyan"\n| wikisource || '+('{:,}'.format(source))+'\n|- style="background: MistyRose"\n| wikiquote || '+('{:,}'.format(
-    quote))+'\n|- style="background: PaleGreen"\n| wikinews || '+('{:,}'.format(news))+'\n|- style="background: #E9DDAF"\n| wikibooks || '+('{:,}'.format(books))+'\n|- style="background: #CFDBC5"\n| wikiversity || '+('{:,}'.format(versity))+'\n|- style="background: #CCF9CC"\n| wiktionary || '+('{:,}'.format(wiktionary))+'\n|- style="background: SkyBlue"\n | other || '+('{:,}'.format(other))+'\n|}\n|\n'
+    cur.execute('SELECT CONVERT(ips_site_id USING utf8) AS ips_site_id, COUNT(*) AS cnt FROM wb_items_per_site GROUP BY ips_site_id ORDER BY ips_site_id')
 
-# number of sitelinks per item
-text += '{| class="wikitable sortable"\n|+ Sitelinks per item\n|-\n! data-sort-type="number"| sitelinks\n! data-sort-type="number" |# of items'
+    for row in cur.fetchall():
+        dbname = row.get('ips_site_id')
+        count = row.get('cnt')
 
-cur.execute(
-    "SELECT pp_value, count(*) FROM page_props WHERE pp_propname = 'wb-sitelinks' GROUP BY pp_value")
+        if dbname is None or count is None:
+            continue
 
-collec = {}
+        project_counts[dbname] = count
 
-for row in cur.fetchall():
-    if int(row[0]) < 10:
-        bin = int(row[0])
-    elif int(row[0]) < 100:
-        bin = int(row[0]/10)*10
-    else:
-        bin = int(row[0]/100)*100
-    if bin in collec:
-        collec[bin] += int(row[1])
-    else:
-        collec[bin] = int(row[1])
+        if 'voyage' in dbname:
+            key = 'wikivoyage'
+        elif 'source' in dbname:
+            key = 'wikisource'
+        elif 'quote' in dbname:
+            key = 'wikiquote'
+        elif 'news' in dbname:
+            key = 'wikinews'
+        elif 'books' in dbname:
+            key = 'wikibooks'
+        elif 'wiktionary' in dbname:
+            key = 'wiktionary'
+        elif 'versity' in dbname:
+            key = 'wikiversity'
+        elif dbname in [ 'metawiki', 'commonswiki', 'specieswiki', 'wikifunctionswiki', 'wikidatawiki', 'mediawikiwiki' ]:
+            key = 'special'
+        elif dbname in [ 'outreachwiki', 'incubatorwiki', 'wikimaniawiki', 'ruwikimedia', 'sewikimedia' ]:
+            key = 'other'
+        else:
+            key = 'wikipedia'
 
-for m in sorted(collec):
-    text += '\n|-\n| '+str(m)
-    if m >= 10 and m < 100:
-        text += '-'+str(m+9)
-    if m >= 100:
-        text += '-'+str(m+99)
-    text += ' links || '+('{:,}'.format(collec[m]))
+        if key not in family_counts:
+            family_counts[key] = 0
 
-text += '\n|}\n|}\n'
-text += '\n[[Category:Wikidata statistics|Sitelink statistics]]'
+        family_counts[key] += count
 
-# write to wikidata
-site = pywikibot.Site('wikidata', 'wikidata')
-page = pywikibot.Page(site, 'User:Pasleim/Sitelink statistics')
-page.put(text, summary='upd', minorEdit=False)
+    return project_counts, family_counts
+
+
+def get_frequencies(cur) -> dict[int, int]:
+    cur.execute('SELECT CONVERT(pp_value USING utf8) AS sitelink_count, COUNT(*) AS cnt FROM page_props WHERE pp_propname="wb-sitelinks" GROUP BY pp_value')
+
+    frequency:dict[int, int] = {}
+
+    for row in cur.fetchall():
+        sitelink_count = int(row.get('sitelink_count'))
+        count = row.get('cnt')
+
+        if sitelink_count is None or count is None:
+            continue
+
+        if sitelink_count < 10:
+            bin = sitelink_count
+        elif sitelink_count < 100:
+            bin = int(sitelink_count/10)*10
+        else:
+            bin = int(sitelink_count/100)*100
+
+        if bin not in frequency:
+            frequency[bin] = 0
+
+        frequency[bin] += count
+
+    return frequency
+
+
+def get_sitelinks_per_project_table(project_counts:dict[str, int], all_links_count:int, total_count:int) -> str:
+    text = """{| class="wikitable sortable" style="margin-right:50px;"
+|+ Sitelinks per project
+|-
+! Project
+! data-sort-type="number" | # of sitelinks
+"""
+
+    for dbname, count in project_counts.items():
+        if 'voyage' in dbname:
+            text += '|- style="background: Bisque"'
+        elif 'source' in dbname:
+            text += '|- style="background: LightCyan"'
+        elif 'quote' in dbname:
+            text += '|- style="background: MistyRose"'
+        elif 'news' in dbname:
+            text += '|- style="background: PaleGreen"'
+        elif 'books' in dbname:
+            text += '|- style="background: #E9DDAF"'
+        elif 'wiktionary' in dbname:
+            text += '|- style="background: #CCF9CC"'
+        elif 'versity' in dbname:
+            text += '|- style="background: #CFDBC5"'
+        elif dbname in [ 'metawiki', 'commonswiki', 'specieswiki', 'wikifunctionswiki', 'wikidatawiki', 'mediawikiwiki' ]:
+            text += '|- style="background: SkyBlue"'
+        elif dbname in [ 'outreachwiki', 'incubatorwiki', 'wikimaniawiki', 'ruwikimedia', 'sewikimedia' ]:
+            text += '|- style="background: Gray"'
+        else:
+            text += '|-'
+
+        text += f'\n| {dbname} || {count:,}\n'
+
+    text += f"""|-
+! Total !! {all_links_count:,} ({round(all_links_count/total_count, 2)} per Item)
+|}}"""
+
+    return text
+
+
+def get_summary_table(family_counts:dict[str, int]) -> str:
+    text = f"""{{| class="wikitable sortable" style="margin-right:50px;"
+|+ Sitelinks per family
+|-
+! Projects
+! data-sort-type="number" | # of sitelinks
+|-
+| wikipedia || {family_counts['wikipedia']:,}
+|- style="background: Bisque"
+| wikivoyage || {family_counts['wikivoyage']:,}
+|- style="background: LightCyan"
+| wikisource || {family_counts['wikisource']:,}
+|- style="background: MistyRose"
+| wikiquote || {family_counts['wikiquote']:,}
+|- style="background: PaleGreen"
+| wikinews || {family_counts['wikinews']:,}
+|- style="background: #E9DDAF"
+| wikibooks || {family_counts['wikibooks']:,}
+|- style="background: #CFDBC5"
+| wikiversity || {family_counts['wikiversity']:,}
+|- style="background: #CCF9CC"
+| wiktionary || {family_counts['wiktionary']:,}
+|- style="background: SkyBlue"
+| other || {family_counts['special']:,}
+|- style="background: Gray"
+| other || {family_counts['other']:,}
+|}}"""
+
+    return text
+
+
+def get_sitelinks_per_item_table(frequencies:dict[int, int]) -> str:
+    text = """{| class="wikitable sortable"
+|+ Sitelinks per item
+|-
+! data-sort-type="number" | sitelinks
+! data-sort-type="number" | # of items"""
+
+    for freq_bin in sorted(frequencies):
+        text += f'\n|-\n| {freq_bin}'
+
+        if freq_bin >= 10 and freq_bin < 100:
+            text += f'-{freq_bin+9}'
+
+        if freq_bin >= 100:
+            text += f'-{freq_bin+99}'
+
+        text += f' links || {frequencies[freq_bin]:,}'
+
+    text += """
+|}
+"""
+
+    return text
+
+
+def main() -> None:
+    db = mariadb.connect(
+        host='wikidatawiki.analytics.db.svc.eqiad.wmflabs',
+        database='wikidatawiki_p',
+        default_file=f'{expanduser("~")}/replica.my.cnf',
+    )
+    cur = db.cursor(dictionary=True)
+
+    total_count = get_total_count(cur)
+    all_links_count = get_all_links_count(cur)
+
+    if total_count is None or all_links_count is None:
+        return
+
+    project_counts, family_counts = get_project_and_family_counts(cur)
+    frequencies = get_frequencies(cur)
+
+    cur.close()
+    db.close()
+
+    text = f"""Update: <onlyinclude>{strftime("%Y-%m-%d %H:%M (%Z)")}</onlyinclude>.
+
+Total items: {total_count:,}
+    
+== Number of sitelinks ==
+{{|
+|- style="vertical-align:top;"
+| {get_sitelinks_per_project_table(project_counts, all_links_count, total_count)}
+| {get_summary_table(family_counts)}
+| {get_sitelinks_per_item_table(frequencies)}
+|}}
+
+[[Category:Wikidata statistics|Sitelink statistics]]"""
+
+    page = pwb.Page(pwb.Site('wikidata', 'wikidata'), 'User:Pasleim/Sitelink statistics')
+    page.text = text
+    page.save(summary='upd', minor=False)
+
+
+if __name__=='__main__':
+    main()

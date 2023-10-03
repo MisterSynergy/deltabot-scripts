@@ -218,9 +218,12 @@ Total items: {total_count:,}
 == Number of sitelinks ==
 {{|
 |- style="vertical-align:top;"
-| {get_sitelinks_per_project_table(project_counts, all_links_count, total_count)}
-| {get_summary_table(family_counts)}
-| {get_sitelinks_per_item_table(frequencies)}
+|
+{get_sitelinks_per_project_table(project_counts, all_links_count, total_count)}
+|
+{get_summary_table(family_counts)}
+|
+{get_sitelinks_per_item_table(frequencies)}
 |}}
 
 [[Category:Wikidata statistics|Sitelink statistics]]"""

@@ -58,7 +58,7 @@ WHERE
     AND pp_page=page_id
     AND CONCAT("Q", ips_item_id)=page_title
     AND page_namespace=0
-    AND ips_site_id=%(dbname)s'"""
+    AND ips_site_id=%(dbname)s"""
 
 SPARQL_QUERY = """SELECT ?item ?lemma WHERE {{
   ?sitelink schema:about ?item;

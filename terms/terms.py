@@ -20,7 +20,7 @@ class Replica:
         self.cursor = self.connection.cursor(dictionary=True)
 
     def __enter__(self):
-        return (self.connection, self.cursor)
+        return self.cursor
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         self.cursor.close()

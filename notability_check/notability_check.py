@@ -2,97 +2,142 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import pywikibot
-from pywikibot.data import api
-import re
-import datetime
 from datetime import datetime, timedelta
+import re
+from typing import Optional
 
-site = pywikibot.Site("wikidata", "wikidata")
-repo = site.data_repository()
+import pywikibot as pwb
+from pywikibot.data import api
 
-text = 'The following items may not be notable according to [[WD:N]]. Feel free to remove false positives from the list.\n\n'
 
-#scan old items
-yesterday = datetime.now() - timedelta(days=1)
-page = pywikibot.Page(site,'User:Pasleim/notability')
-oldtext = page.get()
-foo = oldtext.split('\n')
-for line in foo:
-    if '===' in line:
-        date = line
-    elif '{{Q|' in line:
-        res2 = re.search(r'\{\{Q\|Q?([0-9]*)\}\}',line)
-        if res2:
-            q = res2.group(1)
-            item = pywikibot.ItemPage(repo,'Q'+str(q))
-            if item.isRedirectPage():
-                continue
-            if not item.exists():
-                continue
-            dict = item.get()
-            if not len(dict['sitelinks']): #no sitelinks
-                if len(dict['claims']) < 3: #0, 1 or 2 claims
-                    if sum(1 for _ in item.backlinks(namespaces=0)) == 0: #no backlinks
-                        nstat = len(dict['claims'])
-                        if date:
-                            text += date+'\n'
-                            date = None
-                        if nstat == 1:
-                            text += '{{Q|'+str(q)+'}} (1 statement)<br />\n'
-                        else:
-                            text += '{{Q|'+str(q)+'}} ('+str(nstat)+' statements)<br />\n'
+SITE = pwb.Site('wikidata', 'wikidata')
+REPO = SITE.data_repository()
 
-#check item from yesterday
-date = yesterday.strftime("%Y%m%d")
-date2 = yesterday.strftime("%Y-%m-%d")
 
-check = 0
-rccontinue = date+'000000|0'
-while (1 == 1):
-    params = {
-        'action': 'query',
-        'list': 'recentchanges',
-        'rctype': 'new',
-        'rcprop': 'title',
-        'rcstart': date+'000000',
-        'rcend': date+'235959',
-        'rcdir': 'newer',
-        'rclimit' : 500,
-        'rcnamespace':0,
-        'rcshow' : '!patrolled',
-        'rccontinue':rccontinue
+def check_item(qid:str) -> Optional[str]:
+    item = pwb.ItemPage(REPO, qid)
+
+    if not item.exists():
+        return None
+
+    if item.isRedirectPage():
+        return None
+
+    dict = item.get()
+    if len(dict['sitelinks']) > 0:  # has sitelinks, is notable
+        return None
+
+    if len(dict['claims']) >= 3:  # has 3 or more claims
+        return None
+
+    if sum(1 for _ in item.backlinks(namespaces=0)) > 0:  # has backlinks
+        return None
+
+    claim_cnt = len(dict['claims'])
+    if claim_cnt == 1:
+        return f'{{{{Q|{qid}}}}} (1 statement)<br />\n'
+
+    return f'{{{{Q|{qid}}}}} ({claim_cnt} statements)<br />\n'
+
+
+def purge_report_page(old_text:str) -> str:
+    new_text = ''
+    date:Optional[str] = None
+
+    for line in old_text.split('\n'):
+        if '===' in line:
+            date = line
+            continue
+
+        if '{{Q|' not in line:
+            continue
+
+        matches = re.search(r'\{\{Q\|Q?([0-9]*)\}\}', line)
+        if not matches:
+            continue
+
+        qid_numerical = matches.group(1)
+
+        item_text = check_item(f'Q{qid_numerical}')
+        if item_text is None:
+            continue
+
+        if date:
+            new_text += f'{date}\n'
+            date = None
+
+        new_text += item_text
+
+    return new_text
+
+
+def check_items_from_yesterday() -> str:
+    new_text = ''
+
+    yesterday = datetime.now() - timedelta(days=1)
+    date = yesterday.strftime("%Y%m%d")
+    date2 = yesterday.strftime("%Y-%m-%d")
+
+    new_date_added = False
+    rccontinue = f'{date}000000|0'
+
+    while True:
+        params = {
+            'action' : 'query',
+            'list' : 'recentchanges',
+            'rctype' : 'new',
+            'rcprop' : 'title',
+            'rcstart' : f'{date}000000',
+            'rcend' : f'{date}235959',
+            'rcdir' : 'newer',
+            'rclimit' : '500',
+            'rcnamespace' : '0',
+            'rcshow' : '!patrolled',
+            'rccontinue' : rccontinue,
         }
-    req = api.Request(site=site, parameters=params)
-    data = req.submit()
-    for m in data['query']['recentchanges']:
-        try:
-            q = m['title']
-            item = pywikibot.ItemPage(repo,q)
-            if item.isRedirectPage():
+        request = api.Request(site=SITE, parameters=params)
+        data = request.submit()
+
+        for revision in data.get('query', {}).get('recentchanges', []):
+            qid = revision.get('title')
+
+            if qid is None:
                 continue
-            if not item.exists():
+
+            item_text = check_item(qid)
+            if item_text is None:
                 continue
-            dict = item.get()
-            if not len(dict['sitelinks']): #no sitelinks
-                if len(dict['claims']) < 3: #0, 1 or 2 claims
-                    if sum(1 for _ in item.backlinks(namespaces=0)) == 0: #no backlinks
-                        nstat = len(dict['claims'])
-                        if check == 0:
-                            check = 1
-                            text += '==='+date2+'===\n'
-                        if nstat == 1:
-                            text += '{{Q|'+str(q)+'}} (1 statement)<br />\n'
-                        else:
-                            text += '{{Q|'+str(q)+'}} ('+str(nstat)+' statements)<br />\n'
-        except:
-            pass
-    if 'query-continue' in data:
-        rccontinue = data['query-continue']['recentchanges']['rccontinue']
-    else:
+
+            if new_date_added is False:
+                new_text += f'==={date2}===\n'
+                new_date_added = True
+
+            new_text += item_text
+
+        if 'query-continue' in data:
+            rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', 0)
+            continue
+
         break
 
-page.put(text, summary='upd', minorEdit=False)
-print('update successful')
+    return new_text
 
 
+def main() -> None:
+    page = pwb.Page(SITE, 'User:Pasleim/notability')
+
+    new_text = 'The following items may not be notable according to [[WD:N]]. Feel free to remove false positives from the list.\n\n'
+
+    #scan old items
+    old_text = page.get()
+    new_text += purge_report_page(old_text)
+
+    #check items from yesterday
+    new_text += check_items_from_yesterday()
+
+    page.text = new_text
+    page.save(summary='upd', minor=False)
+
+
+if __name__=='__main__':
+    main()

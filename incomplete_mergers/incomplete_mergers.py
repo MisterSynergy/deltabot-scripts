@@ -2,16 +2,18 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from datetime import datetime, timedelta
+from os.path import expanduser
+import re
+
 import pywikibot as pwb
 from pywikibot.data import api
-from datetime import datetime, timedelta
-import re
 
 
 SITE = pwb.Site('wikidata', 'wikidata')
 REPO = SITE.data_repository()
 
-TIME_FILE = './jobs/incomplete_mergers/incomplete_mergers_time.dat'
+TIME_FILE = f'{expanduser("~")}/jobs/incomplete_mergers/incomplete_mergers_time.dat'
 
 
 def addition_check(qid_1:str, qid_2:str) -> bool:

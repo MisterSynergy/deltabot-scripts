@@ -20,7 +20,7 @@ EDIT_SUMMARY = 'Bot: Updating database report'
 
 # wdqs config
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
-WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (noclaims.py via User:PLbot at Wikidata; mailto:tools.pltools@toolforge.org)'
+WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (noclaims.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 WD = 'http://www.wikidata.org/entity/'
 
 # Wikidata replica config

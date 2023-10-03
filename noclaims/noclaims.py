@@ -275,15 +275,15 @@ def main():
         page.text = text
         page.save(summary=EDIT_SUMMARY, minor=False)
 
-    if True:
-        report, idx, max_value = make_overview()
-        stat = f'{{{{DR otherreport|max={max_value}|reportlength={idx}}}}}\n'
-        text = stat + HEADER_OVERVIEW.format(timestamp=time.strftime("%Y-%m-%d %H:%M (%Z)")) + report + FOOTER_OVERVIEW
-        summary = f'Bot: Updating database report: reportlength: {idx}; max: {max_value}'
 
-        page = pwb.Page(SITE, 'Wikidata:Database reports/without claims by site')
-        page.text = text
-        page.save(summary=summary, minor=False)
+    report, idx, max_value = make_overview()
+    stat = f'{{{{DR otherreport|max={max_value}|reportlength={idx}}}}}\n'
+    text = stat + HEADER_OVERVIEW.format(timestamp=time.strftime("%Y-%m-%d %H:%M (%Z)")) + report + FOOTER_OVERVIEW
+    summary = f'Bot: Updating database report: reportlength: {idx}; max: {max_value}'
+
+    page = pwb.Page(SITE, 'Wikidata:Database reports/without claims by site')
+    page.text = text
+    page.save(summary=summary, minor=False)
 
 
 if __name__=='__main__':

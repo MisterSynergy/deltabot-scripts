@@ -297,7 +297,7 @@ def update_list(whitelist:list[list[int]], names:list[int], disam:list[int], id:
             excluded+=1
         else:
             accepted+=1
-            pretext += f'# [[Q{qid_num_1}]] ([[:{interwiki_prefix_1}:{page_title_1.decode("utf8")}]]) and [[Q{qid_num_2}]] ([[:{interwiki_prefix_2}:{page_title_2.decode("utf8")}]])\n'
+            pretext += f'# [[Q{qid_num_1}]] ([[:{interwiki_prefix_1}:{page_title_1}]]) and [[Q{qid_num_2}]] ([[:{interwiki_prefix_2}:{page_title_2}]])\n'
 
     #write text
     text = f"""{{{{User:Pasleim/projectmerge/header

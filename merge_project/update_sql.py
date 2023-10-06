@@ -13,7 +13,7 @@ PAGE = 'User:Pasleim/projectmerge-input'
 
 
 def main() -> None:
-    cnx = mariadb.connect(host='tools-db', database='s51591__main', default_file=f'{expanduser("~")}/replica.my.cnf')
+    cnx = mariadb.connect(host='tools-db', database='s53100__merge_status', default_file=f'{expanduser("~")}/replica.my.cnf')
     cur = cnx.cursor(dictionary=True)
 
     page = pwb.Page(SITE, PAGE)
@@ -51,7 +51,6 @@ def main() -> None:
     cur.execute('SELECT id, wiki1, wiki2 FROM merge_status')
     for row in cur.fetchall():
         if f'{row.get("wiki1")} {row.get("wiki2")}' not in content:
-
             delete_query = 'DELETE FROM merge_status WHERE id=%(identifier)s'
             delete_params = { 'identifier' : row.get('id') }
             cur.execute(delete_query, delete_params)

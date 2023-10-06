@@ -20,7 +20,7 @@ LOGFILE = f'{expanduser("~")}/logs/merge-project-log.dat'
 DB_DEFAULT_FILE = f'{expanduser("~")}/replica.my.cnf'
 
 TOOL_HOST = 'tools-db'
-TOOL_DB = 's51591__main'
+TOOL_DB = 's53100__merge_status'
 WIKIDATA_REPLICA_HOST = 'wikidatawiki.analytics.db.svc.wikimedia.cloud'
 WIKIDATA_REPLICA_DB = 'wikidatawiki_p'
 

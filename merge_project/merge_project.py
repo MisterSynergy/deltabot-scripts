@@ -313,20 +313,20 @@ def update_list(whitelist:list[list[int]], names:list[int], disam:list[int], id:
         text += f'\n\n== Merge candidates ==\n{pretext}'
 
     # write to Wikidata
+    page = pwb.Page(SITE, f'User:Pasleim/projectmerge/{dbname_1}-{dbname_2}')
+
+    if accepted > 0 or page.exists():
+        page.text = text
+        page.save(summary='upd', minor=False)
+
+    with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
+        cur.execute(
+            f'UPDATE merge_status SET last_update=%(timestmp)s, candidates=%(accepted)s, update_running="0000-00-00 00:00:00" WHERE id=%(identifier)s',
+            { 'timestmp' : strftime("%Y-%m-%d %H:%M:%S"), 'accepted' : accepted, 'identifier' : id }
+        )
+        conn.commit()
+
     with open(LOGFILE, mode='a') as file_handle:
-        page = pwb.Page(SITE, f'User:Pasleim/projectmerge/{dbname_1}-{dbname_2}')
-
-        if accepted > 0 or page.exists():
-            page.text = text
-            page.save(summary='upd', minor=False)
-
-        with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
-            cur.execute(
-                f'UPDATE merge_status SET last_update=%(timestmp)s, candidates=%(accepted)s, update_running="0000-00-00 00:00:00" WHERE id=%(identifier)s',
-                { 'timestmp' : strftime("%Y-%m-%d %H:%M:%S"), 'accepted' : accepted, 'identifier' : id }
-            )
-            conn.commit()
-
         file_handle.write(f'{strftime("%Y-%m-%d %H:%M (%Z)")}\tupdate {dbname_1} {dbname_2}\n')
 
 
@@ -418,18 +418,43 @@ def load_whitelist_from_do_not_merge() -> list[list[int]]:
 
 
 def query_backlog(argv:str) -> list[dict[str, Any]]:
+    # select which lists need an update
+    if argv == 'all':
+        query = f"""SELECT
+            id,
+            wiki1,
+            wiki2,
+            CONVERT(cat1 USING utf8) AS cat1,
+            CONVERT(cat2 USING utf8) AS cat2
+        FROM
+            merge_status
+        WHERE
+            TIMESTAMPDIFF(DAY, last_update, NOW())>6
+            AND update_running='0000-00-00 00:00:00'
+        ORDER BY
+            TIMESTAMPDIFF(DAY, last_update, NOW()) DESC
+        LIMIT
+            {ALL_INCREMENT}"""
+    elif argv == 'upd':
+        query = """SELECT
+            id,
+            wiki1,
+            wiki2,
+            CONVERT(cat1 USING utf8) AS cat1,
+            CONVERT(cat2 USING utf8) AS cat2
+        FROM
+            merge_status
+        WHERE
+            update_requested>last_update
+            AND update_running='0000-00-00 00:00:00'"""
+    else:
+        raise RuntimeError(f'Invalid argv "{argv}" provided (only "all" and "upd" are allowed)')
+
     with Replica(TOOL_HOST, TOOL_DB) as (conn, cur):
         cur.execute('UPDATE merge_status SET update_running="0000-00-00 00:00:00" WHERE TIMESTAMPDIFF(DAY, update_running, NOW())>1')
         conn.commit()
 
-        # select which lists need an update
-        if argv == 'all':
-            cur.execute(f'SELECT id, wiki1, wiki2, CONVERT(cat1 USING utf8) AS cat1, CONVERT(cat2 USING utf8) AS cat2 FROM merge_status WHERE TIMESTAMPDIFF(DAY, last_update, NOW())>6 AND update_running="0000-00-00 00:00:00" LIMIT {ALL_INCREMENT}')
-        elif argv == 'upd':
-            cur.execute('SELECT id, wiki1, wiki2, CONVERT(cat1 USING utf8) AS cat1, CONVERT(cat2 USING utf8) AS cat2 FROM merge_status WHERE update_requested>last_update AND update_running="0000-00-00 00:00:00"')
-        else:
-            raise RuntimeError(f'Invalid argv "{argv}" provided (only "all" and "upd" are allowed)')
-
+        cur.execute(query)
         result = cur.fetchall()
 
     return result

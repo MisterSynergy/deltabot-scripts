@@ -2,77 +2,99 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-import sys
-import pywikibot
-from pywikibot.data import api
 import re
+
+import pywikibot as pwb
 import requests
 
-sys.tracebacklimit = 0
 
-site = pywikibot.Site("wikidata", "wikidata")
-repo = site.data_repository()
+SITE = pwb.Site('wikidata', 'wikidata')
+REPO = SITE.data_repository()
 
-prefixDic = {'quote':'q', 'news': 'n', 'voyage': 'voy', 'books': 'b', 'source': 's', 'species': 'species', 'versity': 'v', 'media': 'wmf', 'data': 'd'}
 
-def countEid(cc):
+def count_external_ids(claims:list[pwb.Claim]) -> int:
     cnt = 0
-    for key in cc:
-        if cc[key][0].type == 'external-id': 
+    for pid in claims:
+        if claims[pid][0].type=='external-id':
            cnt += 1
+
     return cnt
 
-def oldEdits(title):
-    text = '{{User:Pasleim/Items for deletion/archivebox-pagedeleted}}\n'
-    text += 'The following items may no longer be notable according to [[WD:N]]. Feel free to remove false positives from the list.\n\n'
-    text += '{| class="wikitable sortable plainlinks"\n! Item !! # Claims<br /><small>(# sources)</small> !! # Backlinks !! # ext-Id !! Last deleted page !! Timestamp \n'
-    page = pywikibot.Page(site,title) 
+
+def old_edits(page_title:str) -> None:
+    text = """{{User:Pasleim/Items for deletion/archivebox-pagedeleted}}
+The following items may no longer be notable according to [[WD:N]]. Feel free to remove false positives from the list.
+
+{| class="wikitable sortable plainlinks"
+|-
+! Item !! # Claims<br /><small>(# sources)</small> !! # Backlinks !! # ext-Id !! Last deleted page !! Timestamp
+"""
+
+    page = pwb.Page(SITE, page_title) 
     oldtext = page.get()
-    foo = oldtext.split('\n')
-    for line in foo:
+
+    for line in oldtext.split('\n'):
         res = re.search(r'{{Q\|(Q[0-9]+)}} (.*) \|\| (.*) \|\| ([0-9]+) \|\| ([0-9]+) \|\| (.*)', line)
-        if res:
-            q = res.group(1)
-            item = pywikibot.ItemPage(repo,q)
-            if item.isRedirectPage():
-                continue
-            if not item.exists():
-                continue
-            dict = item.get()
-            if len(dict['sitelinks']) != 0:
-                continue
-            nstat = len(dict['claims'])
-            nsources = 0
-            for p in dict['claims']:
-                for c in dict['claims'][p]:
-                    for s in c.getSources():
-                        keys = list(s.keys())
-                        nsources += len(keys) - keys.count('P143')
-            source = '' if nsources == 0 else ' <small>(' + str(nsources) + ')</small>'
-            backlinks = sum(1 for _ in item.backlinks(namespaces=0))
-            externalids = countEid(dict['claims'])
-            text += u'|-\n| {{Q|'+res.group(1)+'}} '+res.group(2)+' || '+str(nstat)+source+' || '+str(backlinks)+' || '+str(externalids)+' || '+res.group(6)+'\n' 
+        if not res:
+            continue
+
+        qid = res.group(1)
+        item = pwb.ItemPage(REPO, qid)
+
+        if not item.exists():
+            continue
+
+        if item.isRedirectPage():
+            continue
+
+        dict = item.get()
+        if len(dict['sitelinks']) > 0:
+            continue
+
+        nstat = len(dict['claims'])
+        nsources = 0
+        for pid in dict['claims']:
+            for claim in dict['claims'][pid]:
+                for sources_str in claim.getSources():
+                    keys = list(sources_str.keys())
+                    nsources += len(keys) - keys.count('P143')
+
+        sources_str = '' if nsources == 0 else f' <small>({nsources})</small>'
+        backlinks = sum(1 for _ in item.backlinks(namespaces=0))
+        external_ids = count_external_ids(dict['claims'])
+
+        text += f"""|-
+| {{{{Q|{qid}}}}} {res.group(2)} || {nstat}{sources_str} || {backlinks} || {external_ids} || {res.group(6)}
+"""
+
     text += '|}'
 
+    page.text = text
+    page.save(summary='upd', minor=False)
 
-    page.put(text, summary='upd', minorEdit=False)
 
-def main():
+def main() -> None:
     payload = {
         'action': 'query',
         'list': 'allpages',
         'apprefix': 'Pasleim/Items for deletion/Page deleted',
-        'aplimit': 120,
-        'apnamespace': 2,
+        'aplimit': '120',
+        'apnamespace': '2',
         'format': 'json'
     }
-    r = requests.get('https://www.wikidata.org/w/api.php',params=payload)
-    data = r.json()
-    for m in data['query']['allpages']:
-        #try:
-        oldEdits(m['title'])
-        #except:
-        #    print('error with '+m['title'])
-                
-if __name__ == "__main__":
+    response = requests.get(
+        url='https://www.wikidata.org/w/api.php',
+        params=payload
+    )
+    data = response.json()
+
+    for page in data.get('query', {}).get('allpages', []):
+        page_title = page.get('title')
+        if page_title is None:
+            continue
+
+        old_edits(page_title)
+
+
+if __name__=='__main__':
     main()

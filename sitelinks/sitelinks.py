@@ -158,7 +158,7 @@ def get_summary_table(family_counts:dict[str, int]) -> str:
 |- style="background: #CCF9CC"
 | wiktionary || {family_counts['wiktionary']:,}
 |- style="background: SkyBlue"
-| other || {family_counts['special']:,}
+| special || {family_counts['special']:,}
 |- style="background: Gray"
 | other || {family_counts['other']:,}
 |}}"""

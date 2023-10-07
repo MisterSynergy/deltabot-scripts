@@ -10,6 +10,8 @@ site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
 siteCommons = pywikibot.Site('commons', 'commons')
 
+WDQS_USER_AGENT = f'{requests.utils.default_user_agent()}(fix_claims.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+
 with open(f'{expanduser("~")}/jobs/fix_claims/categoryPrefix', encoding='utf-8') as f:
     exec(f.read())
 
@@ -576,7 +578,7 @@ def getViolations(job):
         'format': 'json'
     }
     try:
-        r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql?', params=payload)
+        r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql?', params=payload, headers={'User-Agent' : WDQS_USER_AGENT} )
         data = r.json()
         for m in data['results']['bindings']:
             candidates.append(m['item']['value'].replace('http://www.wikidata.org/entity/', ''))

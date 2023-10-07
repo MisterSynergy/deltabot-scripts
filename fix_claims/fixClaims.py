@@ -646,9 +646,9 @@ def main():
         print(f'--> {len(done.get(job["name"], []))} done, {len(notdone.get(job["name"], []))} not done\n')
         sleep(1)
     if nodone_file is False:
-        f1 = open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8')
-        f1.write(json.dumps(done, ensure_ascii=False))
-        f1.close()
+        with open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8') as file_handle:
+            file_handle.write(json.dumps(done, ensure_ascii=False))
+
     createMaintenanceList(notdone)
 
 

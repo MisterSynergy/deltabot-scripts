@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
+import sys
 import re
 import requests
 import pywikibot
 import json
 from stdnum import isbn
 from os.path import expanduser
+from time import strftime, sleep
 
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
@@ -579,11 +581,18 @@ def getViolations(job):
     }
     try:
         r = requests.get('https://query.wikidata.org/bigdata/namespace/wdq/sparql?', params=payload, headers={'User-Agent' : WDQS_USER_AGENT} )
+    except Exception as exception:
+        print(f'--> Problem during query; status code {r.status_code}; no results')
+
+    try:
         data = r.json()
+    except Exception as exception:
+        print(f'--> Problem during parsing query result; no results')
+    else:
         for m in data['results']['bindings']:
             candidates.append(m['item']['value'].replace('http://www.wikidata.org/entity/', ''))
-    except:
-        pass
+
+    print(f'--> Found {len(candidates)} items to process')
     return candidates
 
 
@@ -606,15 +615,25 @@ def proceedOneCandidate(q, job):
 
 
 def main():
+    nodone_file = False
+    if len(sys.argv) > 1 and sys.argv[1] == 'nodone':
+        nodone_file = True
+
     r = requests.get('https://www.wikidata.org/wiki/User:DeltaBot/fixClaims/jobs?action=raw')
     jobs = r.json()
-    done = json.load(open(f'{expanduser("~")}/jobs/fix_claims/done.json', encoding='utf-8'))
+    if nodone_file is False:
+        done = json.load(open(f'{expanduser("~")}/jobs/fix_claims/done.json', encoding='utf-8'))
+    else:
+        done = {}
     notdone = {}
-    for job in jobs:
+    for i, job in enumerate(jobs, start=1):
+        print(f'== {strftime("%H:%M:%S")} ({i}/{len(jobs)}): job {job["name"]} ==')
         candidates = getViolations(job)
         if job['name'] not in done:
             done[job['name']] = []
-        for q in candidates:
+        for j, q in enumerate(candidates, start=1):
+            if j%100==0:
+                print(f'--> progress {j}/{len(candidates)}')
             if q not in whitelist:
                 if q not in done[job['name']]:
                     try:
@@ -624,9 +643,12 @@ def main():
                     done[job['name']].append(q)
                 else:
                     notdone.setdefault(job['name'],[]).append(q)
-    f1 = open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8')
-    f1.write(json.dumps(done, ensure_ascii=False))
-    f1.close()
+        print(f'--> {len(done.get(job["name"], []))} done, {len(notdone.get(job["name"], []))} not done\n')
+        sleep(1)
+    if nodone_file is False:
+        f1 = open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8')
+        f1.write(json.dumps(done, ensure_ascii=False))
+        f1.close()
     createMaintenanceList(notdone)
 
 

@@ -10,10 +10,10 @@ import pywikibot as pwb
 import requests
 
 
-SITE = pwb.Site('wikidata','wikidata')
+SITE = pwb.Site('wikidata', 'wikidata')
 REPO = SITE.data_repository()
 
-HEADER = f"""A list of the most linked disambiguation page items. Data as of <onlyinclude>{strftime("%Y-%m-%d %H:%M (%Z)")}</onlyinclude>.
+HEADER = """A list of the most linked {specifier} items. Data as of <onlyinclude>{timestamp}</onlyinclude>.
 
 """
 
@@ -34,8 +34,12 @@ FOOTER = """[[Category:Wikidata statistics]]"""
 
 
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
-WDQS_USER_AGENT =f'{requests.utils.default_user_agent()} (popular_disam.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+WDQS_USER_AGENT =f'{requests.utils.default_user_agent()} (popular_pages.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+WDQS_SLICING_LIMIT = 250_000
 WD = 'http://www.wikidata.org/entity/'
+
+SMALL_NUMBERS_CUTOFF = 50
+SMALL_NUMBERS_LIMIT = 10
 
 
 def query_wdqs(query:str, retry_credit:int=3) -> list[dict[str, dict[str, Any]]]:
@@ -54,6 +58,9 @@ def query_wdqs(query:str, retry_credit:int=3) -> list[dict[str, dict[str, Any]]]
         payload = response.json()
     except JSONDecodeError as exception:
         if response.status_code == 500 and ('offset is out of range' in response.text):  # slice service depleted
+            return []
+
+        if response.status_code == 500 and ('fromIndex > toIndex' in response.text):  # slice service depleted at first slice
             return []
 
         if response.status_code == 429 and retry_credit > 0:  # we are likely running too fast; try up to three times
@@ -78,11 +85,12 @@ def query_backlinks(wd_class:str) -> dict[str, int]:
 }} GROUP BY ?item ORDER BY DESC(?cnt)"""
 
     offset = 0
-    limit = 250_000
+    limit = WDQS_SLICING_LIMIT
 
     qids = {}
 
     while True:
+        #print(strftime("%H:%M:%S"), wd_class, offset, limit)
         query = query_template.format(
             offset=offset,
             limit=limit,
@@ -109,50 +117,54 @@ def query_backlinks(wd_class:str) -> dict[str, int]:
 
         offset += limit
 
-    if max(qids.values()) >= 50:
-        chunked_qids = { qid : cnt for qid, cnt in qids.items() if cnt >= 50 }
+    if len(qids) == 0:
+        return qids
+
+    if max(qids.values()) >= SMALL_NUMBERS_CUTOFF:
+        chunked_qids = { qid : cnt for qid, cnt in qids.items() if cnt >= SMALL_NUMBERS_CUTOFF }
         chunked_qids_sorted = dict(sorted(chunked_qids.items(), key=lambda x:x[1], reverse=True))
     else:
         qids_sorted = dict(sorted(qids.items(), key=lambda x:x[1], reverse=True))
-        chunked_qids_sorted = { qid : qids_sorted[qid] for qid in list(qids_sorted)[:10] }  # small numbers anyways, max 10 elements
+        chunked_qids_sorted = { qid : qids_sorted[qid] for qid in list(qids_sorted)[:SMALL_NUMBERS_LIMIT] }  # small numbers anyways, max SMALL_NUMBERS_LIMIT elements
 
     return chunked_qids_sorted
 
 
-def query_dab_classes() -> dict[str, str]:
-    query = """PREFIX gas: <http://www.bigdata.com/rdf/gas#>
-
-SELECT DISTINCT ?item ?itemLabel (xsd:integer(?depth_float) AS ?depth) WHERE {
-  SERVICE gas:service {
+def query_type_items(root_class:str) -> dict[str, str]:
+    query = f"""PREFIX gas: <http://www.bigdata.com/rdf/gas#>
+SELECT DISTINCT ?item ?itemLabel (xsd:integer(?depth_float) AS ?depth) WHERE {{
+  SERVICE gas:service {{
     gas:program gas:gasClass 'com.bigdata.rdf.graph.analytics.SSSP';
-                gas:in wd:Q4167410;
+                gas:in wd:{root_class};
                 gas:linkType wdt:P279;
                 gas:traversalDirection 'Reverse';
-                gas:maxIterations 4;
+                gas:maxIterations 6;
                 gas:out ?item;
                 gas:out1 ?depth_float .
-  }
-  SERVICE wikibase:label { bd:serviceParam wikibase:language 'en' }
-} ORDER BY ASC(?depth) ASC(STRAFTER(STR(?item), STR(wd:)))"""
+  }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language 'en' }}
+}} ORDER BY ASC(?depth) ASC(STRAFTER(STR(?item), STR(wd:)))"""
 
-    query_result = query_wdqs(query)
-    dab_qids = {}
-    for row in query_result:
+    qids = {}
+    for row in query_wdqs(query):
         qid = row.get('item', {}).get('value', '').replace(WD, '')
         label = row.get('itemLabel', {}).get('value', '')
-        dab_qids[qid] = label
 
-    return dab_qids
+        qids[qid] = label
+
+    return qids
 
 
-def make_report() -> str:
-    dab_qids = query_dab_classes()
+def make_report(root_class:str) -> str:
+    type_qids = query_type_items(root_class)
     text = ''
 
-    for dab_qid, label in dab_qids.items():
-        text += f'== Type "{label}" ([[{dab_qid}]]) ==\n{TABLE_HEADER}'
+    for type_qid, label in type_qids.items():
+        backlinks = query_backlinks(type_qid)
+        if len(backlinks) == 0:
+            continue
 
-        backlinks = query_backlinks(dab_qid)
+        text += f'== Type "{label}" ([[{type_qid}]]) ==\n{TABLE_HEADER}'
         for qid, cnt in backlinks.items():
             item_page = pwb.ItemPage(REPO, qid)
             item_page.get()
@@ -167,20 +179,37 @@ def make_report() -> str:
             for claim in item_page.claims.get('P31', []):
                 if claim.getSnakType()!='value':
                     continue
-                if claim.getTarget().getID()==dab_qid:
+                if claim.getTarget().getID()==type_qid:
                     text += TABLE_ROW.format(qid=qid, cnt=cnt)
+                    break
 
         text += f'{TABLE_FOOTER}'
 
     return text
 
 
-def main():
-    text = HEADER + make_report() + FOOTER
+def report_dab_pages() -> None:
+    text = HEADER.format(specifier='disambiguation page', timestamp=strftime('%Y-%m-%d %H:%M (%Z)')) + make_report('Q4167410') + FOOTER
+    save_to_wiki('Wikidata:Database reports/Most linked disambiguation page items', text)
 
-    page = pwb.Page(SITE, 'Wikidata:Database reports/Most linked disambiguation page items')
+
+def report_category_pages() -> None:
+    text = HEADER.format(specifier='category page', timestamp=strftime('%Y-%m-%d %H:%M (%Z)')) + make_report('Q4167836') + FOOTER
+    save_to_wiki('Wikidata:Database reports/Most linked category items', text)
+
+
+def save_to_wiki(page_title:str, text:str) -> None:
+    page = pwb.Page(SITE, page_title)
     page.text = text
     page.save(summary='Bot:Updating database report', minor=False)
+
+    #with open(f'/data/project/deltabot/{page_title.replace("Wikidata:Database reports/", "").replace(" ", "_")}.txt', mode='w', encoding='utf8') as file_handle:
+    #    file_handle.write(text)
+
+
+def main():
+    report_dab_pages()
+    report_category_pages()
 
 
 if __name__=='__main__':

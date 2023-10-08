@@ -570,7 +570,12 @@ def createMaintenanceList(notdone):
         for q in notdone[job]:
             text += '{{Q|'+q+'}}\n'
     page = pywikibot.Page(site, 'User:DeltaBot/fixClaims/maintenance')
-    page.put(text, summary='upd', minor=False)
+    page.text = text
+    try:
+        page.save(summary='upd', minor=False)
+    except pywikibot.exceptions.OtherPageSaveError as exception:
+        print(f'Cannot save maintenance list due to error: {exception}')
+        return
 
 
 def getViolations(job):

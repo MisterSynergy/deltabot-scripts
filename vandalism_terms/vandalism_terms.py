@@ -130,13 +130,16 @@ def edit_is_false_positive(qid:str, term:str, lang:str) -> bool:
         return False
 
     for nn in dct['sitelinks']:
-        if dct['sitelinks'][nn] == term:
+        if term in dct['sitelinks'][nn].title:
             return True
 
     if f'{lang}wiki' in dct['sitelinks']:
-        local_page = dct['sitelinks'][f'{lang}wiki']
-        
-        text = re.sub('\[\[[^\]]+\|', '', local_page.get())
+        sitelink = dct['sitelinks'][f'{lang}wiki']
+        local_page = pywikibot.Page(sitelink)
+        if not local_page.exists():
+            return False
+
+        text = re.sub('\[\[[^\]]+\|', '', local_page.text)
         text = re.sub('\[\[|\]\]', '', text)
 
         if term in text:

@@ -574,9 +574,13 @@ def createMaintenanceLists(notdone):
         job_page_text = f'{header.format(job=job)}'
         for i, qid in enumerate(notdone[job], start=1):
             if i <= 1000:
-                job_page_text += f'* {{{{Q|{qid}}}}}\n'
+                job_page_text += f'# {{{{Q|{qid}}}}}\n'
+            elif i <= 5000:
+                job_page_text += f'# [[{qid}]]\n'
             else:
-                job_page_text += f'* [[{qid}]]\n'
+                job_page_text += f'\n{len(notdone[job])-5000} additional items have been omitted from this report'
+                break
+
         job_page = pywikibot.Page(site, page_title)
         job_page.text = job_page_text
         try:
@@ -587,18 +591,18 @@ def createMaintenanceLists(notdone):
         else:
             list_of_pages['success'].append(page_title)
 
-    text = f"""Lists of items which could not be edited within a fixClaims job:
+    text = f"""Last update: <onlyinclude>{strftime('%Y-%m-%d %H:%M (%Z)')}</onlyinclude>. List of lists of items which could not be edited within a fixClaims job:
 
 == Successfully updated ==
 """
     for page_title in list_of_pages['success']:
-        text += f'* [[{page_title}]]\n'
+        text += f'# [[{page_title}]]\n'
 
     text += """
 == Update failed ==
 """
     for page_title in list_of_pages['failed']:
-        text += f'* [[{page_title}]]\n'
+        text += f'# [[{page_title}]]\n'
 
     page = pywikibot.Page(site, 'User:DeltaBot/fixClaims/maintenance')
     page.text = text

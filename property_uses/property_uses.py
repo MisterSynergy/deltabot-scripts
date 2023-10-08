@@ -47,15 +47,15 @@ def query_uses(predicate:str) -> int:
 
 
 def query_mainsnak_uses(prop:str) -> int:
-    return query_uses(f'p:{prop}')
+    return query_uses(f'http://www.wikidata.org/prop/{prop}')
 
 
 def query_qualifier_uses(prop:str) -> int:
-    return query_uses(f'pq:{prop}')
+    return query_uses(f'http://www.wikidata.org/prop/qualifier/{prop}')
 
 
 def query_reference_uses(prop:str) -> int:
-    return query_uses(f'pr:{prop}')
+    return query_uses(f'http://www.wikidata.org/prop/reference/{prop}')
 
 
 def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]:

@@ -18,7 +18,7 @@ def query_wdqs(query:str) -> Generator[tuple[str, str], None, None]:
     response = requests.post(
         url=WDQS_ENDPOINT,
         data={
-            query : query,
+            'query' : query,
         },
         headers={
             'Accept' : 'application/sparql-results+json',
@@ -29,7 +29,7 @@ def query_wdqs(query:str) -> Generator[tuple[str, str], None, None]:
     try:
         data = response.json()
     except JSONDecodeError as exception:
-        raise RuntimeError(f'Cannot parse WDQS response as JSON; HTTP status {response.status_code}; response time {response.elapsed.total_seconds()}') from exception
+        raise RuntimeError(f'Cannot parse WDQS response as JSON; HTTP status {response.status_code}; response time {response.elapsed.total_seconds():.2f} sec') from exception
 
     for row in data.get('results', {}).get('bindings', []):
         item1 = row.get('item1', {}).get('value', '').replace(WD, '')

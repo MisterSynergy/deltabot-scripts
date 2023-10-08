@@ -562,20 +562,47 @@ def levenshtein(s1, s2):
 # main functions        #
 #########################
 
-def createMaintenanceList(notdone):
-    header = 'List of items which could not be edited by DeltaBot\n'
-    text = ''
+def createMaintenanceLists(notdone):
+    header = 'List of items which could not be edited by DeltaBot within the "{job}" fixClaims job:\n'
+
+    list_of_pages = {
+        'success' : [],
+        'failed' : [],
+    }
     for job in sorted(notdone):
-        text += '\n===='+job+'====\n'
-        for q in notdone[job]:
-            text += '{{Q|'+q+'}}\n'
+        page_title = f'User:DeltaBot/fixClaims/maintenance/{job}'
+        job_page_text = f'{header.format(job=job)}'
+        for i, qid in enumerate(notdone[job], start=1):
+            if i <= 1000:
+                job_page_text += f'* {{{{Q|{qid}}}}}\n'
+            else:
+                job_page_text += f'* [[{qid}]]\n'
+        job_page = pywikibot.Page(site, page_title)
+        job_page.text = job_page_text
+        try:
+            job_page.save(summary='upd', minor=False)
+        except pywikibot.exceptions.OtherPageSaveError as exception:
+            print(f'Cannot save maintenance list "{page_title}" due to error: {exception}')
+            list_of_pages['failed'].append(page_title)
+        else:
+            list_of_pages['success'].append(page_title)
+
+    text = f"""Lists of items which could not be edited within a fixClaims job:
+
+== Successfully updated ==
+"""
+    for page_title in list_of_pages['success']:
+        text += f'* [[{page_title}]]\n'
+
+    text += """
+== Update failed ==
+"""
+    for page_title in list_of_pages['failed']:
+        text += f'* [[{page_title}]]\n'
+
     page = pywikibot.Page(site, 'User:DeltaBot/fixClaims/maintenance')
     page.text = text
-    try:
-        page.save(summary='upd', minor=False)
-    except pywikibot.exceptions.OtherPageSaveError as exception:
-        print(f'Cannot save maintenance list due to error: {exception}')
-        return
+    page.save(summary='upd', minor=False)
 
 
 def getViolations(job):
@@ -654,7 +681,7 @@ def main():
         with open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8') as file_handle:
             file_handle.write(json.dumps(done, ensure_ascii=False))
 
-    createMaintenanceList(notdone)
+    createMaintenanceLists(notdone)
 
 
 if __name__ == "__main__":

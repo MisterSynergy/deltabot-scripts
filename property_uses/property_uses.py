@@ -9,14 +9,15 @@ import pywikibot as pwb
 import requests
 from requests.utils import default_user_agent
 
+
 SITE = pwb.Site('wikidata', 'wikidata')
 
 LDF_ENDPOINT = 'https://query.wikidata.org/bigdata/ldf'
 LDF_USER_AGENT =f'{default_user_agent()} (property_uses.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
-LDF_SLEEP = 1  # seconds between requests, in order to avoid being blocked at the endpoint
+LDF_SLEEP = 2  # seconds between requests, in order to avoid being blocked at the endpoint
 
 
-def query_uses(predicate:str) -> int:
+def query_uses(predicate:str, query_credit:int=3) -> int:
     response = requests.get(
         url=LDF_ENDPOINT,
         params={
@@ -33,9 +34,12 @@ def query_uses(predicate:str) -> int:
         data = response.json()
     except JSONDecodeError as exception:
         if response.status_code == 429:  # we are likely running too fast
-            sleep(60)
-        print(response.text)
-        raise RuntimeError('Cannot parse LDF endpoint response body as JSON') from exception
+            query_credit -= 1
+            if query_credit > 0:
+                sleep(120)
+                return query_uses(predicate, query_credit)
+
+        raise RuntimeError(f'Cannot parse LDF endpoint response body as JSON for predicate "{predicate}"; HTTP status: {response.status_code}; query time: {response.elapsed.total_seconds():.2f} sec') from exception
 
     for dct in data.get('@graph', []):
         if 'void:triples' not in dct:

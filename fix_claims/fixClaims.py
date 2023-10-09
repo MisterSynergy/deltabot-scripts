@@ -573,7 +573,8 @@ def createMaintenanceLists(notdone):
         page_title = f'User:DeltaBot/fixClaims/maintenance/{job}'
         job_page_text = f'{header.format(job=job)}'
 
-        notdone_job_sorted = sorted(notdone[job], key=lambda x: int(x[1:]))
+        # sort for stable order on report pages; first by entity type (L, P, Q), then by numeric_id
+        notdone_job_sorted = sorted(notdone[job], key=lambda x: (x[0], int(re.sub('-.*$', '', x)[1:])))
 
         for i, qid in enumerate(notdone_job_sorted, start=1):
             if i <= 1000:

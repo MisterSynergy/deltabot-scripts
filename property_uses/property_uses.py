@@ -113,12 +113,12 @@ def save_to_wiki_page(page_title:str, wikitext:str) -> None:
 
 
 def write_report(dct:dict[str, int], page_title:str) -> None:
-    wikitext = '{{#switch:{{{1}}}\n'
+    wikitext = '<includeonly>{{#switch:{{{1}}}\n'
     keys = list(dct.keys())
     keys.sort(key=lambda x: int(x[1:]))
     for pid in keys:
-        wikitext += f'{pid[1:]}={dct[pid]:d}\n'
-    wikitext += '}}\n'
+        wikitext += f'|{pid[1:]}={dct[pid]:d}\n'
+    wikitext += '}}</includeonly>\n'
     wikitext += '<noinclude>{{Documentation}}</noinclude>'
 
     save_to_wiki_page(page_title, wikitext)

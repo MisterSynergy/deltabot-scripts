@@ -569,6 +569,12 @@ def createMaintenanceLists(notdone):
         'success' : [],
         'failed' : [],
     }
+    template_names = {
+        'L' : 'Lexeme',
+        'P' : 'Property',
+        'Q' : 'Q',
+    }
+
     for job in sorted(notdone):
         page_title = f'User:DeltaBot/fixClaims/maintenance/{job}'
         job_page_text = f'{header.format(job=job)}'
@@ -578,7 +584,7 @@ def createMaintenanceLists(notdone):
 
         for i, qid in enumerate(notdone_job_sorted, start=1):
             if i <= 1000:
-                job_page_text += f'# {{{{Q|{qid}}}}}\n'
+                job_page_text += f'# {{{{{template_names.get(qid[0], "Q")}|{qid}}}}}\n'
             elif i <= 5000:
                 job_page_text += f'# [[{qid}]]\n'
             else:

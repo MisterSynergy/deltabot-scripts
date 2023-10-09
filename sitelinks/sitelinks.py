@@ -193,7 +193,7 @@ def get_sitelinks_per_item_table(frequencies:dict[int, int]) -> str:
 
 def main() -> None:
     db = mariadb.connect(
-        host='wikidatawiki.analytics.db.svc.eqiad.wmflabs',
+        host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
         default_file=f'{expanduser("~")}/replica.my.cnf',
     )

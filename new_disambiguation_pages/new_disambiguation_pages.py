@@ -311,7 +311,11 @@ def create_new_item(site:str, title:str, title_unformatted:str, language:str, de
     entity_data = get_entity_data(site, title, title_unformatted, language, description, type_qid)
 
     new_item = pwb.ItemPage(REPO)
-    new_item.editEntity(data=entity_data)
+    try:
+        new_item.editEntity(data=entity_data)
+    except pwb.exceptions.OtherPageSaveError as exception:
+        logging.warning(f'Cannot create new item with sitelink "{title}" for project {site} (language={language}, description="{description}", type_qid={type_qid}) due to exception {exception}')
+        return
 
     logging.info(f'Created new item with sitelink "{title}" for project {site} (language={language}, description="{description}", type_qid={type_qid})')
 

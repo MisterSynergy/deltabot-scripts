@@ -13,7 +13,7 @@ PAGE = 'User:Pasleim/projectmerge-input'
 
 
 def main() -> None:
-    cnx = mariadb.connect(host='tools-db', database='s53100__merge_status', default_file=f'{expanduser("~")}/replica.my.cnf')
+    cnx = mariadb.connect(host='tools.db.svc.wikimedia.cloud', database='s53100__merge_status', default_file=f'{expanduser("~")}/replica.my.cnf')
     cur = cnx.cursor(dictionary=True)
 
     page = pwb.Page(SITE, PAGE)

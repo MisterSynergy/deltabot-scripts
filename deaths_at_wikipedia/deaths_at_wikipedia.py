@@ -12,10 +12,6 @@ import pywikibot as pwb
 import requests
 
 
-PETSCAN_ENDPOINT = 'https://petscan.wmflabs.org/'
-PETSCAN_SLEEP = 2
-PETSCAN_USER_AGENT = f'{requests.utils.default_user_agent()} (deaths_at_wikipedia.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
-
 PROJECTS:list[dict[str, Any]] = [
     {'wiki' : 'ar', 'prefix' : 'وفيات '},
     {'wiki' : 'az', 'suffixes': [ '-ci ildə vəfat edənlər', '-cı ildə vəfat edənlər', '-cü ildə vəfat edənlər', '-cu ildə vəfat edənlər' ]},
@@ -95,6 +91,12 @@ SITE = pwb.Site('wikidata', 'wikidata')
 EDIT_SUMMARY_TEMPLATE = 'Bot: Updating Database report: {items} items; latest: {latest}; en: {enwiki}; nonroman: {nonroman_wiki}; ar: {arwiki}, ja: {jawiki}, zh: {zhwiki}, cyr: {cyr_wiki}; AGING 24h: {days1}, 48h: {days2}, 7d: {days7}, 30d: {days30},  365+d: {days365p}'
 EDIT_SUMMARY_ALL_TEMPLATE = 'Bot: Updating Database report {years} years: {items} items; latest: {all_latest}; en: {enwiki}; nonroman: {nonroman_wiki}; ar: {arwiki}, ja: {jawiki}, zh: {zhwiki}, cyr: {cyr_wiki}; AGING 24h: {days1}, 48h: {days2}, 7d: {days7},  30d: {days30},  365+d: {days365p}'
 
+USER_AGENT = f'{requests.utils.default_user_agent()} (deaths_at_wikipedia.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
+WD = 'http://www.wikidata.org/entity/'
+PETSCAN_ENDPOINT = 'https://petscan.wmflabs.org/'
+PETSCAN_SLEEP = 1
+
 
 TODAY = datetime.now()
 YEARS = list(range(1941, TODAY.year+1))
@@ -115,7 +117,7 @@ def query_petscan(payload:dict[str, str]) -> Generator[PetscanRow, None, None]:
     response = requests.post(
         url=PETSCAN_ENDPOINT,
         data=payload,
-        headers={ 'User-Agent' : PETSCAN_USER_AGENT }
+        headers={ 'User-Agent' : USER_AGENT }
     )
     sleep(PETSCAN_SLEEP)
 
@@ -137,6 +139,27 @@ def query_petscan(payload:dict[str, str]) -> Generator[PetscanRow, None, None]:
             row.get('len'),
             row.get('touched'),
         )
+
+
+def query_wdqs(query:str) -> Generator[dict[str, Any], None, None]:
+    response = requests.post(
+        url=WDQS_ENDPOINT,
+        data={
+            'query' : query,
+        },
+        headers={
+            'Accept' : 'application/sparql-results+json',
+            'User-Agent': USER_AGENT,
+        }
+    )
+
+    try:
+        data = response.json()
+    except JSONDecodeError as exception:
+        raise RuntimeError(f'Cannot parse WDQS response as JSON; HTTP status {response.status_code}; query time {response.elapsed.total_seconds:.2f} sec') from exception
+
+    for row in data.get('results', {}).get('bindings', []):
+        yield row
 
 
 def thai_year(year:int) -> int:
@@ -238,6 +261,23 @@ def query_for_report(year:int) -> list[dict[str, str]]:
     return return_results
 
 
+def get_list_of_human_qids(qids:list[str|None]) -> dict[str, str]:
+    query = f"""SELECT DISTINCT ?item ?itemLabel WHERE {{
+    VALUES ?item {{
+        wd:{' wd:'.join([ qid for qid in qids[:5000] if qid is not None ])}
+    }}
+    ?item p:P31/ps:P31 wd:Q5 .
+    SERVICE wikibase:label {{ bd:serviceParam wikibase:language 'en' }}
+}}"""
+
+    human_qids:dict[str, str] = {}
+    for row in query_wdqs(query):
+        human_qid = row.get('item', {}).get('value', '').replace(WD, '')
+        label = row.get('itemLabel', {}).get('value', '')
+        human_qids[human_qid] = label
+
+    return human_qids
+
 def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
     result = query_for_report(year)
 
@@ -259,42 +299,21 @@ def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
         'cyr_wiki' : 0,
     }
 
-    for i, row in enumerate(result, start=1):
-        qid = row.get('qid')
-        wikis = row.get('wikis')
-        timestamp = row.get('earliest_timestamp')
+    list_of_humans = get_list_of_human_qids([ row[0] for row in result ])
+
 
         if qid is None or wikis is None or timestamp is None:
             continue
 
         qid = qid.upper()
-        payload = {
-            'action' : 'wbgetentities',
-            'ids' : qid,
-            'props' : 'labels|claims',
-            'format' : 'json'
-        }
-        response = requests.get(
-            'https://www.wikidata.org/w/api.php',
-            params=payload
-        )
-        try:
-            data = response.json()
-        except JSONDecodeError as _:
-            print(f'Cannot parse API response for {qid} as JSON (year={year})')
-            continue
 
-        human = False
-        for claim in data.get('entities', {}).get(qid, {}).get('claims', {}).get('P31', []):
-            if claim.get('mainsnak', {}).get('datavalue').get('value', {}).get('numeric-id') == 5:
-                human = True
-
+        human = (qid in list_of_humans.keys())
         if human is False:
             continue
 
-        label = data.get('entities', {}).get(qid, {}).get('labels', {}).get('en', {}).get('value', qid)
-        if label == qid and wikis in data.get('entities', {}).get(qid, {}).get('labels', {}):
-            label = data.get('entities', {}).get(qid, {}).get('labels', {}).get(wikis, {}).get('value', qid)
+        label = list_of_humans.get(qid)
+        if label is None or len(label)==0:
+            label = qid
 
         counts['items'] += 1
         if counts.get('items') == 1:

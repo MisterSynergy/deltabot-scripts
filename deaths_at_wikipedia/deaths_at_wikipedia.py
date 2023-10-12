@@ -241,7 +241,7 @@ def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
                     'touch_timestamp' : None,
                 }
 
-            results[row.qid]['wikis'].append(project_code)
+            results[row.qid]['wiki_list'].append(project_code)
             if results[row.qid]['touch_timestamp'] is None:
                 results[row.qid]['touch_timestamp'] = row.page_touched
             else:

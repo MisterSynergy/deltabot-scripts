@@ -261,18 +261,40 @@ def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
 
 
 def get_list_of_human_qids(qids:list[str|None]) -> dict[str, str]:
-    query = f"""SELECT DISTINCT ?item ?itemLabel WHERE {{
+    query = f"""SELECT DISTINCT ?item ?itemLabel ?label_sample (SAMPLE(?lemma) AS ?lemma_sample) WITH {{
+  SELECT ?item WHERE {{
     VALUES ?item {{
-        wd:{' wd:'.join([ qid for qid in qids[:5000] if qid is not None ])}
+      wd:{' wd:'.join([ qid for qid in qids[:5000] if qid is not None ])}
     }}
     ?item p:P31/ps:P31 wd:Q5 .
-    SERVICE wikibase:label {{ bd:serviceParam wikibase:language 'en' }}
-}}"""
+  }}
+}} AS %subquery1 WITH {{
+  SELECT ?item (SAMPLE(?label) AS ?label_sample) WHERE {{
+    INCLUDE %subquery1 .
+    OPTIONAL {{ ?item rdfs:label ?label }}
+  }} GROUP BY ?item
+}} AS %subquery2 WHERE {{
+  INCLUDE %subquery2 .
+  OPTIONAL {{ ?item ^schema:about/schema:name ?lemma }}
+  SERVICE wikibase:label {{ bd:serviceParam wikibase:language 'en' }}
+}} GROUP BY ?item ?itemLabel ?label_sample"""
 
     human_qids:dict[str, str] = {}
     for row in query_wdqs(query):
         human_qid = row.get('item', {}).get('value', '').replace(WD, '')
-        label = row.get('itemLabel', {}).get('value', '')
+
+        label_en = row.get('itemLabel', {}).get('value', '')
+        label_sample = row.get('label_sample', {}).get('value', '')
+        label_lemma = row.get('lemma_sample', {}).get('value', '')
+        if label_en not in [ '', human_qid ]:
+            label = label_en
+        elif label_sample != '':
+            label = label_sample
+        elif label_lemma != '':
+            label = label_lemma
+        else:
+            label = human_qid
+
         human_qids[human_qid] = label
 
     return human_qids

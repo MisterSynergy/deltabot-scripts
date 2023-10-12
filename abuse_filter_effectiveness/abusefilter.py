@@ -97,9 +97,7 @@ def main() -> None:
 
     page = pwb.Page(pwb.Site('wikidata', 'wikidata'), 'Wikidata:Database reports/Abuse filter effectiveness')
     page.text = text
-
-    print(text)
-    #page.save(summary='Bot:Updating database report', minor=False)
+    page.save(summary='Bot:Updating database report', minor=False)
 
 
 if __name__=='__main__':

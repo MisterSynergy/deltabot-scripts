@@ -304,7 +304,6 @@ def make_report(year:int) -> tuple[str, datetime, datetime, dict[str, int]]:
     result = query_for_report(year)
 
     report = ''
-    earliest = datetime.strptime('20391231235959', TS_FORMAT_MW)
     latest = datetime.strptime('19700101000000', TS_FORMAT_MW)
     counts = {
         'items' : 0,
@@ -341,8 +340,11 @@ def make_report(year:int) -> tuple[str, datetime, datetime, dict[str, int]]:
             label = qid
 
         counts['items'] += 1
-        if counts.get('items') == 1 and earliest is None:
+        if counts.get('items') == 1:
             earliest = timestamp
+
+        if timestamp > latest:
+            latest = timestamp
 
         if 'commons,' in wikis:
             wikis = wikis.replace('commons,', '') + ',commons'
@@ -371,9 +373,6 @@ def make_report(year:int) -> tuple[str, datetime, datetime, dict[str, int]]:
             counts['nonroman_wiki'] +=1
         if any(x in wikis for x in CYR_LANG):
             counts['cyr_wiki'] +=1
-
-        if latest is None or timestamp > latest:
-            latest = timestamp
 
         if timestamp > (TODAY-timedelta(days=1)):
             counts['days1'] +=1

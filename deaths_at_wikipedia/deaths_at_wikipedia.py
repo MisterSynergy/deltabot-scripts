@@ -23,7 +23,7 @@ PROJECTS:list[dict[str, Any]] = [
     {'wiki' : 'cy', 'prefix' : 'Marwolaethau '},
     {'wiki' : 'da', 'prefix' : 'Døde i '},
     {'wiki' : 'de', 'prefix' : 'Gestorben '},
-    {'wiki' : 'el', 'prefix' : 'Θάνατοι το '},    
+    {'wiki' : 'el', 'prefix' : 'Θάνατοι το '},
     {'wiki' : 'en', 'suffix' : ' deaths'},
     {'wiki' : 'eo', 'prefix' : 'Mortintoj en '},
     {'wiki' : 'es', 'prefix' : 'Fallecidos en '},
@@ -31,16 +31,16 @@ PROJECTS:list[dict[str, Any]] = [
     {'wiki' : 'eu', 'suffixes': [ 'eko heriotzak', 'ko heriotzak' ]},
     {'wiki' : 'fi', 'prefix' : 'Vuonna ', 'suffix': ' kuolleet'},
     {'wiki' : 'fr', 'prefixes' : [ 'Décès en ', 'Décès en janvier ', 'Décès en février ', 'Décès en mars ', 'Décès en avril ', 'Décès en mai ', 'Décès en juin ', 'Décès en juillet ', 'Décès en août ', 'Décès en septembre ', 'Décès en octobre ', 'Décès en novembre ', 'Décès en décembre ' ]},
-    {'wiki' : 'gl', 'prefix' : 'Finados en '},    
+    {'wiki' : 'gl', 'prefix' : 'Finados en '},
     {'wiki' : 'hu', 'suffixes': [ '-ban elhunyt személyek', '-ben elhunyt személyek' ]},
-    {'wiki' : 'hy', 'suffix': ' մահեր'},    
+    {'wiki' : 'hy', 'suffix': ' մահեր'},
     {'wiki' : 'id', 'prefix' : 'Kematian '},
     {'wiki' : 'it', 'prefix' : 'Morti nel '},
     {'wiki' : 'ja', 'suffix': '年没'},
     {'wiki' : 'ka', 'prefix' : 'გარდაცვლილი '},
     {'wiki' : 'kk', 'suffix': ' жылы қайтыс болғандар'},
     {'wiki' : 'ko', 'suffix': '년 죽음'},
-    {'wiki' : 'la', 'prefix' : 'Mortui '},    
+    {'wiki' : 'la', 'prefix' : 'Mortui '},
     {'wiki' : 'lb', 'prefix' : 'Gestuerwen '},
     {'wiki' : 'mk', 'prefix' : 'Починати во ', 'suffix': ' година'},
     {'wiki' : 'ms', 'prefix' : 'Kematian '},
@@ -55,7 +55,7 @@ PROJECTS:list[dict[str, Any]] = [
     {'wiki' : 'simple', 'suffix' : ' deaths'},
     {'wiki' : 'sk', 'prefix' : 'Úmrtia v '},
     {'wiki' : 'sl', 'prefix' : 'Umrli leta '},
-    {'wiki' : 'sr', 'prefix' : 'Умрли '},    
+    {'wiki' : 'sr', 'prefix' : 'Умрли '},
     {'wiki' : 'sv', 'prefix' : 'Avlidna '},
     {'wiki' : 'ta', 'suffix' : ' இறப்புகள்'},
     {'wiki' : 'th', 'prefix' :'บุคคลที่เสียชีวิตในปี พ.ศ. '},
@@ -85,7 +85,6 @@ STAT = '{{{{DR rd numbers-1|year={year}|items={items}|latest={latest}|en={enwiki
 
 SUMMARY_ROW = """{{{{DR rd numbers-y|year={year}|items={items}|latest={latest}|en={enwiki}|nonroman={nonroman_wiki}|cyr={cyr_wiki}|ar={arwiki}|ja={jawiki}|zh={zhwiki}|24h={days1}|48h={days2}|7d={days7}|30d={days30}|365dp={days365p}|earliest={earliest}}}}}
 """
-
 
 SITE = pwb.Site('wikidata', 'wikidata')
 EDIT_SUMMARY_TEMPLATE = 'Bot: Updating Database report: {items} items; latest: {latest}; en: {enwiki}; nonroman: {nonroman_wiki}; ar: {arwiki}, ja: {jawiki}, zh: {zhwiki}, cyr: {cyr_wiki}; AGING 24h: {days1}, 48h: {days2}, 7d: {days7}, 30d: {days30},  365+d: {days365p}'
@@ -195,7 +194,7 @@ def make_categories_list(year:int, prefix:Optional[str]=None, suffix:Optional[st
 
 def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
     results:dict[str, dict[str, Any]] = {}
-    for i, project in enumerate(PROJECTS, start=1):
+    for project in PROJECTS:
         project_code = project.get('wiki')
         if project_code is None:
             continue
@@ -235,7 +234,6 @@ def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
             print(exception)
             continue
 
-        project_cnt = 0
         for row in results_gen:
             if row.qid not in results:
                 results[row.qid] = {

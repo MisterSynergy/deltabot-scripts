@@ -97,6 +97,9 @@ WD = 'http://www.wikidata.org/entity/'
 PETSCAN_ENDPOINT = 'https://petscan.wmflabs.org/'
 PETSCAN_SLEEP = 1
 
+TS_FORMAT_OUT = '%Y-%m-%d, %H:%M:%S'
+TS_FORMAT_HEADER = '%Y-%m-%d %H:%M (%Z)'
+TS_FORMAT_MW = '%Y%m%d%H%M%S'
 
 TODAY = datetime.now()
 YEARS = list(range(1941, TODAY.year+1))
@@ -110,7 +113,7 @@ class PetscanRow:
     page_namespace_text : str
     qid : str
     page_len : int
-    page_touched : str
+    page_touched : datetime
 
 
 def query_petscan(payload:dict[str, str]) -> Generator[PetscanRow, None, None]:
@@ -137,7 +140,7 @@ def query_petscan(payload:dict[str, str]) -> Generator[PetscanRow, None, None]:
             row.get('nstext'),
             row.get('q'),
             row.get('len'),
-            row.get('touched'),
+            datetime.strptime(row.get('touched'), TS_FORMAT_MW),
         )
 
 
@@ -190,7 +193,7 @@ def make_categories_list(year:int, prefix:Optional[str]=None, suffix:Optional[st
     raise RuntimeWarning('No input received to build categories list')
 
 
-def query_for_report(year:int) -> list[dict[str, str]]:
+def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
     results:dict[str, dict[str, Any]] = {}
     for i, project in enumerate(PROJECTS, start=1):
         project_code = project.get('wiki')
@@ -236,26 +239,24 @@ def query_for_report(year:int) -> list[dict[str, str]]:
         for row in results_gen:
             if row.qid not in results:
                 results[row.qid] = {
-                    'wikis' : [],
-                    'earliest_timestamp' : 20999999999999,
+                    'wiki_list' : [],
+                    'touch_timestamp' : None,
                 }
 
             results[row.qid]['wikis'].append(project_code)
-            results[row.qid]['earliest_timestamp'] = min(
-                results[row.qid]['earliest_timestamp'],
-                int(row.page_touched)
-            )
+            if results[row.qid]['touch_timestamp'] is None:
+                results[row.qid]['touch_timestamp'] = row.page_touched
+            else:
+                results[row.qid]['touch_timestamp'] = min(results[row.qid]['touch_timestamp'], row.page_touched)
 
-            project_cnt += 1
-
-    return_results:list[dict[str, Any]] = []
+    return_results:list[tuple[str, list[str], datetime]] = []
     for qid, dct in results.items():
         return_results.append(
-            {
-                'qid' : qid,
-                'wikis' : ','.join(dct['wikis']),
-                'earliest_timestamp' : str(dct['earliest_timestamp']),
-            }
+            (
+                qid,
+                dct['wiki_list'],
+                dct['touch_timestamp'],
+            )
         )
 
     return return_results
@@ -278,12 +279,13 @@ def get_list_of_human_qids(qids:list[str|None]) -> dict[str, str]:
 
     return human_qids
 
-def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
+
+def make_report(year:int) -> tuple[str, datetime, datetime, dict[str, int]]:
     result = query_for_report(year)
 
     report = ''
-    earliest = ''
-    latest = ''
+    earliest = datetime.strptime('20391231235959', TS_FORMAT_MW)
+    latest = datetime.strptime('19700101000000', TS_FORMAT_MW)
     counts = {
         'items' : 0,
         'enwiki' : 0,
@@ -301,8 +303,11 @@ def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
 
     list_of_humans = get_list_of_human_qids([ row[0] for row in result ])
 
+    for row in result:
+        qid, wiki_list, timestamp = row
+        wikis = ','.join(wiki_list)
 
-        if qid is None or wikis is None or timestamp is None:
+        if qid is None or len(wikis)==0 or timestamp is None:
             continue
 
         qid = qid.upper()
@@ -316,7 +321,7 @@ def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
             label = qid
 
         counts['items'] += 1
-        if counts.get('items') == 1:
+        if counts.get('items') == 1 and earliest is None:
             earliest = timestamp
 
         if 'commons,' in wikis:
@@ -325,7 +330,13 @@ def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
         if ',en' in wikis:
             wikis= 'en,' + wikis.replace(',en', '', 1)
 
-        report += TABLE_ROW.format(qid=qid, wikis=wikis, timestamp=timestamp, label=label, row_count=counts.get('items'))
+        report += TABLE_ROW.format(
+            qid=qid,
+            wikis=wikis,
+            timestamp=timestamp.strftime(TS_FORMAT_OUT),
+            label=label,
+            row_count=counts.get('items')
+        )
 
         if 'en' in wikis:
             counts['enwiki'] += 1
@@ -341,31 +352,31 @@ def make_report(year:int) -> tuple[str, str, str, dict[str, int]]:
         if any(x in wikis for x in CYR_LANG):
             counts['cyr_wiki'] +=1
 
-        if timestamp > latest:
+        if latest is None or timestamp > latest:
             latest = timestamp
 
-        if timestamp > (TODAY-timedelta(days=1)).strftime('%Y%m%d%H%M%S'):
+        if timestamp > (TODAY-timedelta(days=1)):
             counts['days1'] +=1
-        if timestamp > (TODAY-timedelta(days=2)).strftime('%Y%m%d%H%M%S'):
+        if timestamp > (TODAY-timedelta(days=2)):
             counts['days2'] +=1
-        if timestamp > (TODAY-timedelta(days=7)).strftime('%Y%m%d%H%M%S'):
+        if timestamp > (TODAY-timedelta(days=7)):
             counts['days7'] +=1
-        if timestamp > (TODAY-timedelta(days=30)).strftime('%Y%m%d%H%M%S'):
+        if timestamp > (TODAY-timedelta(days=30)):
             counts['days30'] +=1
-        if timestamp < (TODAY-timedelta(days=365)).strftime('%Y%m%d%H%M%S'):
+        if timestamp < (TODAY-timedelta(days=365)):
             counts['days365p'] +=1
 
     text = STAT.format(
         year=year,
-        latest=latest,
+        latest=latest.strftime(TS_FORMAT_OUT),
         **counts,
     )
-    text += HEADER.format(year=year, timestamp=strftime("%Y-%m-%d %H:%M (%Z)")) 
+    text += HEADER.format(year=year, timestamp=strftime(TS_FORMAT_HEADER)) 
     text += report
     text += FOOTER.format(year=year)
 
     edit_summary = EDIT_SUMMARY_TEMPLATE.format(
-        latest=latest,
+        latest=latest.strftime(TS_FORMAT_OUT),
         **counts,
     )
 
@@ -384,7 +395,7 @@ def main() -> None:
 
     years = 0
     all_summary = ''
-    all_latest = ''
+    all_latest = datetime.strptime('19700101000000', TS_FORMAT_MW)
     all_counts = {}
 
     for year in YEARS:
@@ -402,8 +413,8 @@ def main() -> None:
 
         all_summary += SUMMARY_ROW.format(
             year=year,
-            earliest = earliest,
-            latest=latest,
+            earliest=earliest.strftime(TS_FORMAT_OUT),
+            latest=latest.strftime(TS_FORMAT_OUT),
             **counts
         )
 
@@ -413,7 +424,7 @@ def main() -> None:
 [[Category:Database reports deaths by year| ]]"""
     edit_summary = EDIT_SUMMARY_ALL_TEMPLATE.format(
         years=years,
-        all_latest=all_latest,
+        all_latest=all_latest.strftime(TS_FORMAT_OUT),
         **all_counts,
     )
 

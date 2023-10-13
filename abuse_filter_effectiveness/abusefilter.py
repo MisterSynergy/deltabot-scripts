@@ -36,7 +36,7 @@ def make_report() -> str:
     db = mariadb.connect(
         host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
-        default_file=f'{expanduser("~")}//replica.my.cnf',
+        default_file=f'{expanduser("~")}/replica.my.cnf',
     )
     cur = db.cursor(dictionary=True)
 

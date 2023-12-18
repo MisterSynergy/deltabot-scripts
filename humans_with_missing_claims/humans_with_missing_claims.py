@@ -2,6 +2,7 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from datetime import datetime, timedelta
 from json.decoder import JSONDecodeError
 import re
 from time import strftime
@@ -14,6 +15,11 @@ import requests
 SITE = pwb.Site('wikidata', 'wikidata')
 MISSING_PROPERTIES = [ 'P21', 'P19', 'P569', 'P734', 'P735' ]
 USER_AGENT = f'{requests.utils.default_user_agent()} (humans_with_missing_claims.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+
+# bot will not evaluate and edit reports that it has edited in the past n days; this avoids
+# unnecessary resource usage after crashes; the value should be somewhat lower than the usual
+# job execution cadence
+MIN_DAY_SINCE_LAST_EDIT = 5
 
 
 def query_wdqs(query:str) -> list[dict[str, Any]]:
@@ -35,7 +41,17 @@ def query_wdqs(query:str) -> list[dict[str, Any]]:
         raise RuntimeWarning('Cannot parse JSON response') from exception
 
     return payload.get('results', {}).get('bindings', [])
-    
+
+
+def skip_report_due_to_recent_edit(pid:str) -> bool:
+    page = pwb.Page(SITE, f'Wikidata:Database reports/Humans with missing claims/{pid}')
+
+    for revision in page.revisions(reverse=False, endtime=(datetime.now()-timedelta(days=MIN_DAY_SINCE_LAST_EDIT))):
+        if revision.get('user') == 'DeltaBot':
+            return True
+
+    return False
+
 
 def create_summary(counts:dict[str, dict[str, int]]) -> None:
     props = list(counts.keys())
@@ -115,7 +131,13 @@ def create_lists(properties:list[str]) -> None:
 }}"""
 
     counts:dict[str, dict[str, int]] = {}
+    full_update = True
+
     for p1 in properties:
+        if skip_report_due_to_recent_edit(p1):
+            full_update = False
+            continue
+
         results:dict[str, list[str]] = {}
         counts[p1] = {}
         for p2 in MISSING_PROPERTIES:
@@ -142,7 +164,10 @@ def create_lists(properties:list[str]) -> None:
         if len(counts[p1]) > 0:
             create_report(p1, results, counts[p1])
 
-    create_summary(counts)
+    # only update the summary page when a full update was made; prefer an outdated complete summary
+    # over an up-to-date, but incomplete one
+    if full_update is True:
+        create_summary(counts)
 
 
 def read_input() -> list[str]:

@@ -27,6 +27,7 @@ PREFIX_DICT = {
     'media' : 'wmf',
     'data': 'd',
 }
+CNT_ADDED_LIMIT = 2000  # roughly the limit of cases to add per run
 
 
 def count_external_id(cc:dict[str, list]) -> int:
@@ -55,6 +56,7 @@ def new_edits(text) -> tuple[str, str]:
         old_time = file_handle.read().strip()
 
     rccontinue = f'{old_time}|0'
+    cnt_added = 0
     while True:
         params = {
             'action' : 'query',
@@ -113,9 +115,13 @@ def new_edits(text) -> tuple[str, str]:
                 prefix = PREFIX_DICT.get(res.group(2), 'w')
 
             text += f'|-\n| {{{{Q|{revision["title"]}}}}} ([//www.wikidata.org/w/index.php?title={revision["title"]}&action=history hist]) || {nstat} {source} || {backlinks} || {externalids} || [[:{prefix}:{res.group(1).replace("_","-")}:{res.group(3)}]] || {revision["timestamp"]}\n'
+            cnt_added += 1
 
         if 'query-continue' not in data:
              break
+
+        if cnt_added >= CNT_ADDED_LIMIT:
+            break
 
         rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', 0)
 

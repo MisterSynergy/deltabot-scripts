@@ -17,7 +17,7 @@ WD = 'http://www.wikidata.org/entity/'
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
 WDQS_USER_AGENT = 'DeltaBot Complex Constraints'
 
-REPORT_LIMIT = 5000
+REPORT_LIMIT = 2000
 MAX_Q_TEMPLATE = 4000
 TIMEOUT_LIMIT = 60
 

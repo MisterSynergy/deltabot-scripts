@@ -32,6 +32,7 @@ def main() -> None:
         proposals = re.findall('{{Wikidata:Property proposal/(.*?)}}', category_page_content[1])
 
         if not proposals:
+            text += f'| {category} = 0\n'
             continue
 
         for proposal in proposals:

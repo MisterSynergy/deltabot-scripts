@@ -62,7 +62,7 @@ TASKS = [
         'site': 'frwiki',
         'project': 'wikipedia',
         'category': 'Homonymie',
-        'description': 'page d\'homonymie de Wikimedia',
+        'description': 'page d\'homonymie de Wikimédia',
     },
     {
         'language': 'it',

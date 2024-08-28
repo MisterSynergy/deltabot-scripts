@@ -40,8 +40,8 @@ def query_wdqs(query:str) -> Generator[tuple[str, str], None, None]:
 
 def candidate_by_image() -> str:
     query = """SELECT DISTINCT ?item1 ?item2 WHERE {
-  ?item1 wdt:P31/wdt:P279* wd:Q3305213; wdt:P18 ?image . 
-  ?item2 wdt:P31/wdt:P279* wd:Q3305213; wdt:P18 ?image . 
+  ?item1 wdt:P31 wd:Q3305213; wdt:P18 ?image . 
+  ?item2 wdt:P31 wd:Q3305213; wdt:P18 ?image . 
   FILTER(STR(?item1) < STR(?item2)) .
 } ORDER BY ASC(xsd:integer(STRAFTER(STR(?item1), 'entity/Q')))"""
 

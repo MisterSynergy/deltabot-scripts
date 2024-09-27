@@ -31,12 +31,8 @@ def count_external_id(cc:dict[str, list]) -> int:
     cnt = 0
 
     for key in cc:
-        try:
-            if cc[key][0].type == 'external-id':
-               cnt += 1
-        except KeyError as exception:
-            print(exception)
-            print(key)
+        if cc[key][0].type == 'external-id':
+            cnt += 1
 
     return cnt
 
@@ -143,19 +139,16 @@ def save_to_wiki(page:pywikibot.Page, wikitext:str) -> None:
 
 def main() -> None:
     page = pywikibot.Page(SITE, 'User:Pasleim/Items for deletion/Page deleted')
-    try:
-        wikitext, timestamp = new_edits(old_edits(page.get()))
-    except KeyError as exception:
-        print('First', exception)
-        return
 
-    try:
-        save_to_wiki(page, wikitext)
-        with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
-            file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
-    except KeyError as exception:
-        print(exception)
+    wikitext, timestamp = new_edits(old_edits(page.get()))
+
+    save_to_wiki(page, wikitext)
+    with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
+        file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyError as exception:
+        print(exception)

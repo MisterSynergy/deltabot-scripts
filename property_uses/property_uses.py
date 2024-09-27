@@ -96,7 +96,7 @@ def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict
             total[prop] += reference_count
             references[prop] = reference_count
 
-            #print(strftime('%Y-%m-%d, %H:%M:%S'), prop, mainsnak_count, qualifier_count, reference_count, total[prop])
+            print(strftime('%Y-%m-%d, %H:%M:%S'), prop, mainsnak_count, qualifier_count, reference_count, total[prop])
 
         if 'continue' not in data:
             break

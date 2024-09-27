@@ -93,7 +93,7 @@ EDIT_SUMMARY_ALL_TEMPLATE = 'Bot: Updating Database report {years} years: {items
 USER_AGENT = f'{requests.utils.default_user_agent()} (deaths_at_wikipedia.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 WDQS_ENDPOINT = 'https://query.wikidata.org/bigdata/namespace/wdq/sparql'
 WD = 'http://www.wikidata.org/entity/'
-PETSCAN_ENDPOINT = 'https://petscan.wmflabs.org/'
+PETSCAN_ENDPOINT = 'https://petscan.wmcloud.org/'
 PETSCAN_SLEEP = 1
 
 TS_FORMAT_OUT = '%Y-%m-%d, %H:%M:%S'

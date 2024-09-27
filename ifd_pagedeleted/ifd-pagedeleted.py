@@ -34,8 +34,12 @@ def count_external_id(cc:dict[str, list]) -> int:
     cnt = 0
 
     for key in cc:
-        if cc[key][0].type == 'external-id':
-           cnt += 1
+        try:
+            if cc[key][0].type == 'external-id':
+               cnt += 1
+        except KeyError as exception:
+            print(exception)
+            print(key)
 
     return cnt
 
@@ -86,36 +90,41 @@ def new_edits(text) -> tuple[str, str]:
             if not res:
                 continue
 
-            item = pywikibot.ItemPage(REPO, revision['title'])
-            if item.isRedirectPage():
+            try:
+                item = pywikibot.ItemPage(REPO, revision['title'])
+                if item.isRedirectPage():
+                    continue
+                if not item.exists():
+                    continue
+
+                dct = item.get()
+                if 'sitelinks' in dct and len(dct['sitelinks']) != 0:
+                    continue
+
+                nstat = len(dct['claims'])
+                nsources = 0
+
+                for p in dct['claims']:
+                    for c in dct['claims'][p]:
+                        for s in c.getSources():
+                            keys = list(s.keys())
+                            nsources += len(keys) - keys.count('P143')
+
+                source = '' if nsources == 0 else f'<small>({nsources})</small>'
+                backlinks = sum(1 for _ in item.backlinks(namespaces=0))
+                externalids = count_external_id(dct['claims'])
+
+                if res.group(2) is not None and res.group(2)!='':
+                    prefix = 'w'
+                else:
+                    prefix = PREFIX_DICT.get(res.group(2), 'w')
+
+                text += f'|-\n| {{{{Q|{revision["title"]}}}}} ([//www.wikidata.org/w/index.php?title={revision["title"]}&action=history hist]) || {nstat} {source} || {backlinks} || {externalids} || [[:{prefix}:{res.group(1).replace("_","-")}:{res.group(3)}]] || {revision["timestamp"]}\n'
+                cnt_added += 1
+            except KeyError as exception:
+                print(exception)
+                print(revision['title'])
                 continue
-            if not item.exists():
-                continue
-
-            dct = item.get()
-            if 'sitelinks' in dct and len(dct['sitelinks']) != 0:
-                continue
-
-            nstat = len(dct['claims'])
-            nsources = 0
-
-            for p in dct['claims']:
-                for c in dct['claims'][p]:
-                    for s in c.getSources():
-                        keys = list(s.keys())
-                        nsources += len(keys) - keys.count('P143')
-
-            source = '' if nsources == 0 else f'<small>({nsources})</small>'
-            backlinks = sum(1 for _ in item.backlinks(namespaces=0))
-            externalids = count_external_id(dct['claims'])
-
-            if res.group(2) is not None and res.group(2)!='':
-                prefix = 'w'
-            else:
-                prefix = PREFIX_DICT.get(res.group(2), 'w')
-
-            text += f'|-\n| {{{{Q|{revision["title"]}}}}} ([//www.wikidata.org/w/index.php?title={revision["title"]}&action=history hist]) || {nstat} {source} || {backlinks} || {externalids} || [[:{prefix}:{res.group(1).replace("_","-")}:{res.group(3)}]] || {revision["timestamp"]}\n'
-            cnt_added += 1
 
         if 'query-continue' not in data:
              break
@@ -137,11 +146,18 @@ def save_to_wiki(page:pywikibot.Page, wikitext:str) -> None:
 
 def main() -> None:
     page = pywikibot.Page(SITE, 'User:Pasleim/Items for deletion/Page deleted')
-    wikitext, timestamp = new_edits(old_edits(page.get()))
+    try:
+        wikitext, timestamp = new_edits(old_edits(page.get()))
+    except KeyError as exception:
+        print('First', exception)
+        return
 
-    save_to_wiki(page, wikitext)
-    with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
-        file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
+    try:
+        save_to_wiki(page, wikitext)
+        with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
+            file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
+    except KeyError as exception:
+        print(exception)
 
 
 if __name__ == '__main__':

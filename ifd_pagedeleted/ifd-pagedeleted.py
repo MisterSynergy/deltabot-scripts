@@ -2,20 +2,17 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 import re
-import sys
-from typing import Any
 
 import pywikibot
 from pywikibot.data import api
 
-sys.tracebacklimit = 0
 
 SITE = pywikibot.Site('wikidata', 'wikidata')
 REPO = SITE.data_repository()
 
-TIMESTAMP_FILENAME = f'{expanduser("~")}/jobs/ifd_pagedeleted/ifd-pagedeleted_time.dat'
+TIMESTAMP_FILENAME = Path.home() / 'jobs/ifd_pagedeleted/ifd-pagedeleted_time.dat'
 PREFIX_DICT = {
     'quote' : 'q',
     'news' : 'n',

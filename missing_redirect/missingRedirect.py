@@ -2,24 +2,25 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from datetime import datetime, timedelta
 from pathlib import Path
+import re
 
 import pywikibot
 from pywikibot.data import api
-from datetime import datetime, timedelta
-import re
-import sys
 
-site = pywikibot.Site('wikidata', 'wikidata')
-site.login()
-repo = site.data_repository()
 
-cat = pywikibot.Category(site, 'Category:Notability policy exemptions')
+SITE = pywikibot.Site('wikidata', 'wikidata')
+SITE.login()
+REPO = SITE.data_repository()
+
+cat = pywikibot.Category(SITE, 'Category:Notability policy exemptions')
 liste = list(cat.articles(recurse=5))
 
+
 def merge(fromId,toId):
-    fromItem = pywikibot.ItemPage(repo,fromId)
-    toItem = pywikibot.ItemPage(repo,toId)
+    fromItem = pywikibot.ItemPage(REPO,fromId)
+    toItem = pywikibot.ItemPage(REPO,toId)
     fromItem.mergeInto(toItem, ignore_conflicts='description')
     clearItem(fromId)
     fromItem.set_redirect_target(toItem, force=True, save=True)
@@ -30,7 +31,7 @@ def clearItem(fromId):
         'action': 'query',
         'meta': 'tokens'
     }
-    req = api.Request(site=site, parameters=params)
+    req = api.Request(site=SITE, parameters=params)
     data = req.submit()
     #clear item
     params2 = {
@@ -42,7 +43,7 @@ def clearItem(fromId):
         'summary': 'clearing item to prepare for redirect',
         'token': data['query']['tokens']['csrftoken']
     }
-    req2 = api.Request(site=site, parameters=params2)
+    req2 = api.Request(site=SITE, parameters=params2)
     data2 = req2.submit()
 
 def main():
@@ -71,7 +72,7 @@ def main():
             'rctoponly':1,
             'rccontinue':rccontinue
         }
-        req = api.Request(site=site, parameters=params)
+        req = api.Request(site=SITE, parameters=params)
         data = req.submit()
         for m in data['query']['recentchanges']:
             timestamp = m['timestamp']
@@ -93,5 +94,5 @@ def main():
     with open(time_file, 'w') as file_handle:
         file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

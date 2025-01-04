@@ -278,7 +278,7 @@ def make_overview() -> tuple[str, int, int]:
 
 
 def main():
-    for dbname in [ 'dewiki', 'enwiki', 'eowiki', 'etwiki', 'frwiki', 'jawiki', 'nlwiki', 'ptwiki', 'ruwiki', 'svwiki', 'huwiki', 'simplewiki' ]:
+    for dbname in [ 'dewiki', 'enwiki', 'eowiki', 'etwiki', 'frwiki', 'huwiki', 'jawiki', 'kowiki', 'nlwiki', 'ptwiki', 'ruwiki', 'simplewiki', 'svwiki' ]:
         project = Project(dbname)
 
         report = make_report(project)

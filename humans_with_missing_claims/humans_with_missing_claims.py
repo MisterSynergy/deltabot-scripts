@@ -46,6 +46,9 @@ def query_wdqs(query:str) -> list[dict[str, Any]]:
 def skip_report_due_to_recent_edit(pid:str) -> bool:
     page = pwb.Page(SITE, f'Wikidata:Database reports/Humans with missing claims/{pid}')
 
+    if not page.exists():
+        return False
+
     for revision in page.revisions(reverse=False, endtime=(datetime.now()-timedelta(days=MIN_DAY_SINCE_LAST_EDIT))):
         if revision.get('user') == 'DeltaBot':
             return True
@@ -86,7 +89,7 @@ def create_report(p1:str, results:dict[str, list[str]], counts:dict[str, int]) -
         cnt_p2 = counts.get(p2)
         if cnt_p2 is None:
             continue
-        
+
         text += f'== <span id="{p2}"></span> Missing {{{{P|{p2}}}}} ==\n'
         text += f'count: {cnt_p2}\n\n'
 
@@ -142,7 +145,7 @@ def create_lists(properties:list[str]) -> None:
         counts[p1] = {}
         for p2 in MISSING_PROPERTIES:
             results[p2] = []
-            
+
             try:
                 payload_1 = query_wdqs(sparql.format(p1=p1, p2=p2))
             except RuntimeWarning as exception:  # TODO: times out sometimes

@@ -35,25 +35,26 @@ def make_report() -> str:
     cur = db.cursor(dictionary=True)
 
     query = """SELECT
-  CONVERT(pl_title USING utf8) AS pl_title,
+  CONVERT(lt_title USING utf8) AS lt_title,
   COUNT(*) AS cnt
 FROM
   pagelinks
-    LEFT JOIN page ON pl_title=page_title AND pl_namespace=page_namespace
+    JOIN linktarget ON pl_target_id=lt_id 
+    LEFT JOIN page ON lt_title=page_title AND lt_namespace=page_namespace
 WHERE
   (pl_from_namespace=0 OR pl_from_namespace=120)
-  AND (pl_namespace=0 OR pl_namespace=120)
+  AND (lt_namespace=0 OR lt_namespace=120)
   AND page_id IS NULL
 GROUP BY
-  pl_title
+  lt_title
 ORDER BY
-  COUNT(*) DESC, pl_namespace, pl_title"""
+  COUNT(*) DESC, lt_namespace, lt_title"""
 
     cur.execute(query)
 
     text = ''
     for row in cur.fetchall():
-        title = row.get('pl_title')
+        title = row.get('lt_title')
         if title is None:
             continue
 

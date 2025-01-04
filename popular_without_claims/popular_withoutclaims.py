@@ -30,14 +30,15 @@ TABLE_ROW = """|-
 """
 
 QUERY_1 = """SELECT
-    CONVERT(pl_title USING utf8) AS qid,
+    CONVERT(lt_title USING utf8) AS qid,
     COUNT(*) AS cnt
 FROM
     pagelinks
+        JOIN linktarget ON pl_target_id=lt_id
 WHERE
     pl_from_namespace=0
-    AND pl_namespace=0
-    AND pl_title IN (
+    AND lt_namespace=0
+    AND lt_title IN (
         SELECT
             page_title
         FROM
@@ -48,7 +49,7 @@ WHERE
             AND pp_value=0
     )
 GROUP BY
-    pl_title
+    lt_title
 ORDER BY
     cnt DESC
 LIMIT

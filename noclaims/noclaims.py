@@ -145,6 +145,9 @@ class Project:
 
 
     def _init_interwiki_prefix(self) -> str:
+        if self.dbname == 'simplewiki':
+            return ':simple:'
+
         if self.family in [ 'wikipedia', 'wikibooks', 'wikiquote', 'wiktionary', 'wikinews', 'wikisource', 'wikiversity', 'wikivoyage' ]:
             return f':{INTERWIKI_MAP.get(self.family, "")}{self.lang}:'
 
@@ -159,9 +162,6 @@ class Project:
 
         if self.dbname == 'metawiki':
             return ':m:'
-
-        if self.dbname == 'simplewiki':
-            return ':simple:'
 
         raise RuntimeError(f'No interwiki prefix found for project {self.dbname}')
 

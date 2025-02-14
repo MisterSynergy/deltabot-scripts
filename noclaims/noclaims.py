@@ -138,6 +138,9 @@ class Project:
         if self.dbname=='metawiki':
             return ('meta', 'wikimedia')
 
+        if self.dbname=='simplewiki':
+            return ('simple', 'wikipedia')
+
         raise RuntimeError(f'No petscan parameters found for project {self.dbname}')
 
 
@@ -156,6 +159,9 @@ class Project:
 
         if self.dbname == 'metawiki':
             return ':m:'
+
+        if self.dbname == 'simplewiki':
+            return ':simple:'
 
         raise RuntimeError(f'No interwiki prefix found for project {self.dbname}')
 

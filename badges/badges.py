@@ -17,7 +17,7 @@ REPO = SITE.data_repository()
 
 ERROR_THRESHOLD = 50
 
-PETSCAN_ENDPOINT = 'https://petscan.wmflabs.org/'
+PETSCAN_ENDPOINT = 'https://petscan.wmcloud.org/'
 PETSCAN_SLEEP = 1
 USER_AGENT = f'{requests.utils.default_user_agent()} (badges.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 

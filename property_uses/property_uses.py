@@ -12,14 +12,17 @@ from requests.utils import default_user_agent
 
 SITE = pwb.Site('wikidata', 'wikidata')
 
-LDF_ENDPOINT = 'https://query.wikidata.org/bigdata/ldf'
+LDF_ENDPOINTS = [
+    'https://query.wikidata.org/bigdata/ldf',
+    'https://query-scholarly.wikidata.org/bigdata/ldf',
+]
 LDF_USER_AGENT =f'{default_user_agent()} (property_uses.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 LDF_SLEEP = 2  # seconds between requests, in order to avoid being blocked at the endpoint
 
 
-def query_uses(predicate:str, query_credit:int=3) -> int:
+def query_uses(ldf_endpoint:str, predicate:str, query_credit:int=3) -> int:
     response = requests.get(
-        url=LDF_ENDPOINT,
+        url=ldf_endpoint,
         params={
             'predicate' : predicate,
         },
@@ -37,7 +40,7 @@ def query_uses(predicate:str, query_credit:int=3) -> int:
             query_credit -= 1
             if query_credit > 0:
                 sleep(120)
-                return query_uses(predicate, query_credit)
+                return query_uses(ldf_endpoint, predicate, query_credit)
 
         raise RuntimeError(f'Cannot parse LDF endpoint response body as JSON for predicate "{predicate}"; HTTP status: {response.status_code}; query time: {response.elapsed.total_seconds():.2f} sec') from exception
 
@@ -50,16 +53,16 @@ def query_uses(predicate:str, query_credit:int=3) -> int:
     raise RuntimeError('Not triple count found in JSON response')
 
 
-def query_mainsnak_uses(prop:str) -> int:
-    return query_uses(f'http://www.wikidata.org/prop/{prop}')
+def query_mainsnak_uses(ldf_endpoint:str, prop:str) -> int:
+    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/{prop}')
 
 
-def query_qualifier_uses(prop:str) -> int:
-    return query_uses(f'http://www.wikidata.org/prop/qualifier/{prop}')
+def query_qualifier_uses(ldf_endpoint:str, prop:str) -> int:
+    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/qualifier/{prop}')
 
 
-def query_reference_uses(prop:str) -> int:
-    return query_uses(f'http://www.wikidata.org/prop/reference/{prop}')
+def query_reference_uses(ldf_endpoint:str, prop:str) -> int:
+    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/reference/{prop}')
 
 
 def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]:
@@ -84,17 +87,23 @@ def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict
         for m in data.get('query', {}).get('allpages', {}):
             prop = m.get('title', '')[len('Property:'):]
 
-            mainsnak_count = query_mainsnak_uses(prop)
-            total[prop] = mainsnak_count
-            mainsnak[prop] = mainsnak_count
+            total[prop] = 0
+            mainsnak[prop] = 0
+            qualifiers[prop] = 0
+            references[prop] = 0
 
-            qualifier_count = query_qualifier_uses(prop)
-            total[prop] += qualifier_count
-            qualifiers[prop] = qualifier_count
+            for ldf_endpoint in LDF_ENDPOINTS:
+                mainsnak_count = query_mainsnak_uses(ldf_endpoint, prop)
+                total[prop] += mainsnak_count
+                mainsnak[prop] += mainsnak_count
 
-            reference_count = query_reference_uses(prop)
-            total[prop] += reference_count
-            references[prop] = reference_count
+                qualifier_count = query_qualifier_uses(ldf_endpoint, prop)
+                total[prop] += qualifier_count
+                qualifiers[prop] += qualifier_count
+
+                reference_count = query_reference_uses(ldf_endpoint, prop)
+                total[prop] += reference_count
+                references[prop] += reference_count
 
             print(strftime('%Y-%m-%d, %H:%M:%S'), prop, mainsnak_count, qualifier_count, reference_count, total[prop])
 

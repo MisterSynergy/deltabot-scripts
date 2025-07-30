@@ -1,2 +1,8 @@
-*.dat
 __*
+.vscode/*
+requirements.txt
+pyvenv/*
+*.dat
+fix_claims/done.json
+constraint_violations/constraints_rewritten.py
+merge_disam/*.py

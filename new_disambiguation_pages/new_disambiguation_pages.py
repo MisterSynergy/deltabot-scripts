@@ -167,7 +167,7 @@ def is_disambiguation_item(item:pwb.ItemPage) -> bool:
 
 def get_database_cursor():
     db = mariadb.connect(
-        host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+        host='termstore.wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
         default_file=f'{expanduser("~")}/replica.my.cnf'
     )

@@ -154,7 +154,7 @@ def check_items_not_linked_to_each_other(qid_1:str, qid_2:str) -> bool:
     return True
 
 
-def check_term_not_in_en_description(qid_1:str, qid_2:str, *, lang:str='en', search_needle:str='ikimedia') -> bool:
+def check_term_not_in_description(qid_1:str, qid_2:str, *, lang:str='en', search_needle:str='ikimedia') -> bool:
     # check if q1 has "search_needle" in its description but not q2
     item_1 = pwb.ItemPage(REPO, qid_1)
     item_2 = pwb.ItemPage(REPO, qid_2)
@@ -166,7 +166,7 @@ def check_term_not_in_en_description(qid_1:str, qid_2:str, *, lang:str='en', sea
         return False
 
     if lang not in item_1.descriptions or lang not in item_2.descriptions:
-        return False  # void of an English description, assume this check hits
+        return False  # void of an description in the chosen language, assume this check hits
 
     if search_needle in item_1.descriptions.get(lang, '') and search_needle not in item_2.descriptions.get(lang, ''):
         return False
@@ -232,8 +232,8 @@ def process_item(qid:str) -> None:
         check_all_sitelinks_moved_to_same_target(new_item_qids),
         check_items_not_linked_to_each_other(qid, target_qid),
         check_items_not_linked_to_each_other(target_qid, qid),
-        check_term_not_in_en_description(qid, target_qid, lang='en', search_needle='ikimedia'),
-        check_term_not_in_en_description(target_qid, qid, lang='en', search_needle='ikimedia'),
+        check_term_not_in_description(qid, target_qid, lang='en', search_needle='ikimedia'),
+        check_term_not_in_description(target_qid, qid, lang='en', search_needle='ikimedia'),
     ]
 
     if not all(checks):

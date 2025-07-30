@@ -9,10 +9,15 @@ from typing import Generator, Optional
 import mariadb
 import pywikibot as pwb
 
+
+MAIN_HOST = 'wikidatawiki.analytics.db.svc.wikimedia.cloud'
+TERMSTORE_HOST = 'termstore.wikidatawiki.analytics.db.svc.wikimedia.cloud'
+
+
 class Replica:
-    def __init__(self) -> None:
+    def __init__(self, host:str=MAIN_HOST) -> None:
         self.connection = mariadb.connect(
-            host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
+            host=host,
             database='wikidatawiki_p',
             default_file=f'{expanduser("~")}/replica.my.cnf',
         )
@@ -38,7 +43,7 @@ def get_total_pages() -> Optional[int]:
 
 
 def get_languages() -> Generator[str, None, None]:
-    with Replica() as cur:
+    with Replica(TERMSTORE_HOST) as cur:
         query = 'SELECT DISTINCT CONVERT(wbxl_language USING utf8) AS wbxl_language FROM wbt_text_in_lang'
         cur.execute(query)
 
@@ -51,7 +56,7 @@ def get_languages() -> Generator[str, None, None]:
 
 
 def get_label_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
-    with Replica() as cur:
+    with Replica(TERMSTORE_HOST) as cur:
         query = 'SELECT COUNT(*) AS cnt FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="label" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }
@@ -66,7 +71,7 @@ def get_label_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
 
 
 def get_description_counts(langs:list[str]) -> Generator[tuple[str, int], None, None]:
-    with Replica() as cur:
+    with Replica(TERMSTORE_HOST) as cur:
         query = 'SELECT COUNT(*) AS cnt FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="description" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }
@@ -81,7 +86,7 @@ def get_description_counts(langs:list[str]) -> Generator[tuple[str, int], None, 
 
 
 def get_alias_counts(langs:list[str]) -> Generator[tuple[str, int, int], None, None]:
-    with Replica() as cur:
+    with Replica(TERMSTORE_HOST) as cur:
         query = 'SELECT COUNT(*) AS cnt, COUNT(DISTINCT(wbit_item_id)) AS cnt_distinct FROM wbt_item_terms LEFT JOIN wbt_term_in_lang ON wbit_term_in_lang_id=wbtl_id LEFT JOIN wbt_type ON wbtl_type_id=wby_id LEFT JOIN wbt_text_in_lang ON wbtl_text_in_lang_id=wbxl_id WHERE wby_name="alias" AND wbxl_language=%(lang)s'
         for lang in langs:
             params = { 'lang' : lang }

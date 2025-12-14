@@ -245,10 +245,9 @@ def new_edits(text:str) -> str:
 
             text +=  f'|-\n| [[{edit.get("title", "")}]] ([//www.wikidata.org/w/index.php?diff={edit.get("revid", 0)} diff]) || <nowiki>{term}</nowiki> || {action} {termtype} || {lang} || {result} || {{{{user|{edit.get("user", "")}}}}} || {timestamp}\n'
 
-        if 'query-continue' not in data:
+        rccontinue = data.get('continue', {}).get('rccontinue')
+        if rccontinue is None:
             break
-
-        rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', 0)
 
     text += '|}'
 

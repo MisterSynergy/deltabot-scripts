@@ -27,48 +27,48 @@ TEXT_TEMPLATE = """The following unpatrolled items might be vandalised. Please e
 
 
 def filter(term:str, termtype:str, lang:str) -> Optional[str]:
-    if re.search('(\!\!|\?\?|\.\.|,,|\<|\>)', term):
+    if re.search(r'(\!\!|\?\?|\.\.|,,|\<|\>)', term):
         return 'punctuation'
 
-    if re.search('[A-Z]{5,}', term):
+    if re.search(r'[A-Z]{5,}', term):
         return 'upper case'
 
-    if re.search('[0-9]{6,}', term):
+    if re.search(r'[0-9]{6,}', term):
         return 'long number'
 
-    if re.search('(http|www|\:\/\/)', term.lower()):
+    if re.search(r'(http|www|\:\/\/)', term.lower()):
         return 'URL'
 
-    if re.search('(language\-|description|label|alias|jpg|svg|^test$)', term.lower()):
+    if re.search(r'(language\-|description|label|alias|jpg|svg|^test$)', term.lower()):
         return 'suspicious words'
 
-    if re.search('^([b-df-hj-np-tv-xz]{2,6}|[aeiouy][b-df-hj-np-tv-xz][bcdfghjkmnpqstvwxz]{2,5}[aeiouy]?|[b-df-hj-np-tv-xz][bcdfghjkmnpqstvwxz]{3,5}[aeiouy])$', term): #filter 46
+    if re.search(r'^([b-df-hj-np-tv-xz]{2,6}|[aeiouy][b-df-hj-np-tv-xz][bcdfghjkmnpqstvwxz]{2,5}[aeiouy]?|[b-df-hj-np-tv-xz][bcdfghjkmnpqstvwxz]{3,5}[aeiouy])$', term): #filter 46
         return 'nonsense'
 
     if lang in LATIN_LANGUAGES:
         if len(term) < 4 and termtype=='description':
             return 'short description'
-        if re.search('[\u4e00-\u9fff]+|[\u0400-\u0500]+', term): #chinese and cyrillic characters
+        if re.search(r'[\u4e00-\u9fff]+|[\u0400-\u0500]+', term): #chinese and cyrillic characters
             return 'wrong script'
 
-    if re.search('^([ei]n )?(a(frikaa?ns|lbanian?|lemanha|ng(lais|ol)|ra?b(e?|[ei]c|ian?|isc?h)|rmenian?|ssamese|azeri|z[eə]rba(ijani?|ycan(ca)?|yjan)|нглийский)|b(ahasa( (indonesia|jawa|malaysia|melayu))?|angla|as(k|qu)e|[aeo]ng[ao]?li|elarusian?|okmål|osanski|ra[sz]il(ian?)?|ritish( kannada)?|ulgarian?)|c(ebuano|hina|hinese( simplified)?|zech|roat([eo]|ian?)|atal[aà]n?|рпски|antonese)|[cč](esky|e[sš]tina)|d(an(isc?h|sk)|e?uts?ch)|e(esti|ll[hi]nika|ng(els|le(ski|za)|lisc?h)|spa(g?[nñ]h?i?ol|nisc?h)|speranto|stonian|usk[ae]ra)|f(ilipino|innish|ran[cç](ais|e|ez[ao])|ren[cs]h|arsi|rancese)|g(al(ego|ician)|uja?rati|ree(ce|k)|eorgian|erman[ay]?|ilaki)|h(ayeren|ebrew|indi|rvatski|ungar(y|ian))|i(celandic|ndian?|ndonesian?|ngl[eê]se?|ngilizce|tali(ano?|en(isch)?))|ja(pan(ese)?|vanese)|k(a(nn?ada|zakh)|hmer|o(rean?|sova)|urd[iî])|l(at(in[ao]?|vi(an?|e[sš]u))|ietuvi[uų]|ithuanian?)|m(a[ck]edon(ian?|ski)|agyar|alay(alam?|sian?)?|altese|andarin|arathi|elayu|ontenegro|ongol(ian?)|yanmar)|n(e(d|th)erlands?|epali|orw(ay|egian)|orsk( bokm[aå]l)?|ynorsk)|o(landese|dia)|p(ashto|ersi?an?|ol(n?isc?h|ski)|or?tugu?[eê]se?(( d[eo])? brasil(eiro)?| ?\(brasil\))?|unjabi)|r(om[aâi]ni?[aă]n?|um(ano|änisch)|ussi([ao]n?|sch))|s(anskrit|erbian|imple english|inha?la|lov(ak(ian?)?|enš?[cč]ina|en(e|ij?an?)|uomi)|erbisch|pagnolo?|panisc?h|rbeska|rpski|venska|c?wedisc?h|hqip)|t(a(galog|mil)|elugu|hai(land)?|i[eế]ng vi[eệ]t|[uü]rk([cç]e|isc?h|iş|ey))|u(rdu|zbek)|v(alencia(no?)?|ietnamese)|welsh|(англиис|[kк]алмыкс|[kк]азахс|немец|[pр]усс|[yу]збекс)кий( язык)??|עברית|[kкқ](аза[кқ]ша|ыргызча|ирилл)|українськ(а|ою)|б(еларуская|ългарски( език)?)|ελλ[ηι]νικ(ά|α)|ქართული|हिन्दी|ไทย|[mм]онгол(иа)?|([cс]рп|[mм]акедон)ски|العربية|日本語|한국(말|어)|‌हिनद़ि|বাংলা|ਪੰਜਾਬੀ|मराठी|ಕನ್ನಡ|اُردُو|தமிழ்|తెలుగు|ગુજરાતી|فارسی|پارسی|മലയാളം|پښتو|မြန်မာဘာသာ|中文(简体|繁體)?|中文（(简体?|繁體)）|简体|繁體)( language)?$', term): #filter 8
+    if re.search(r'^([ei]n )?(a(frikaa?ns|lbanian?|lemanha|ng(lais|ol)|ra?b(e?|[ei]c|ian?|isc?h)|rmenian?|ssamese|azeri|z[eə]rba(ijani?|ycan(ca)?|yjan)|нглийский)|b(ahasa( (indonesia|jawa|malaysia|melayu))?|angla|as(k|qu)e|[aeo]ng[ao]?li|elarusian?|okmål|osanski|ra[sz]il(ian?)?|ritish( kannada)?|ulgarian?)|c(ebuano|hina|hinese( simplified)?|zech|roat([eo]|ian?)|atal[aà]n?|рпски|antonese)|[cč](esky|e[sš]tina)|d(an(isc?h|sk)|e?uts?ch)|e(esti|ll[hi]nika|ng(els|le(ski|za)|lisc?h)|spa(g?[nñ]h?i?ol|nisc?h)|speranto|stonian|usk[ae]ra)|f(ilipino|innish|ran[cç](ais|e|ez[ao])|ren[cs]h|arsi|rancese)|g(al(ego|ician)|uja?rati|ree(ce|k)|eorgian|erman[ay]?|ilaki)|h(ayeren|ebrew|indi|rvatski|ungar(y|ian))|i(celandic|ndian?|ndonesian?|ngl[eê]se?|ngilizce|tali(ano?|en(isch)?))|ja(pan(ese)?|vanese)|k(a(nn?ada|zakh)|hmer|o(rean?|sova)|urd[iî])|l(at(in[ao]?|vi(an?|e[sš]u))|ietuvi[uų]|ithuanian?)|m(a[ck]edon(ian?|ski)|agyar|alay(alam?|sian?)?|altese|andarin|arathi|elayu|ontenegro|ongol(ian?)|yanmar)|n(e(d|th)erlands?|epali|orw(ay|egian)|orsk( bokm[aå]l)?|ynorsk)|o(landese|dia)|p(ashto|ersi?an?|ol(n?isc?h|ski)|or?tugu?[eê]se?(( d[eo])? brasil(eiro)?| ?\(brasil\))?|unjabi)|r(om[aâi]ni?[aă]n?|um(ano|änisch)|ussi([ao]n?|sch))|s(anskrit|erbian|imple english|inha?la|lov(ak(ian?)?|enš?[cč]ina|en(e|ij?an?)|uomi)|erbisch|pagnolo?|panisc?h|rbeska|rpski|venska|c?wedisc?h|hqip)|t(a(galog|mil)|elugu|hai(land)?|i[eế]ng vi[eệ]t|[uü]rk([cç]e|isc?h|iş|ey))|u(rdu|zbek)|v(alencia(no?)?|ietnamese)|welsh|(англиис|[kк]алмыкс|[kк]азахс|немец|[pр]усс|[yу]збекс)кий( язык)??|עברית|[kкқ](аза[кқ]ша|ыргызча|ирилл)|українськ(а|ою)|б(еларуская|ългарски( език)?)|ελλ[ηι]νικ(ά|α)|ქართული|हिन्दी|ไทย|[mм]онгол(иа)?|([cс]рп|[mм]акедон)ски|العربية|日本語|한국(말|어)|‌हिनद़ि|বাংলা|ਪੰਜਾਬੀ|मराठी|ಕನ್ನಡ|اُردُو|தமிழ்|తెలుగు|ગુજરાતી|فارسی|پارسی|മലയാളം|پښتو|မြန်မာဘာသာ|中文(简体|繁體)?|中文（(简体?|繁體)）|简体|繁體)( language)?$', term): #filter 8
         return 'language as term'
 
-    if re.search('\bneuke?n?\b|\bwtf\b|\bass(hole|wipe|\b)|bitch|\bcocks?\b|\bdicks?\b|\bloo?ser|\bcunts?\b|dildo|douche|fuck|nigg(er|a)|pedophile|\bfag(g|\b)|penis|blowjob|\bcrap|\bballs|sluts?\b|\btrolo?l|whore|racist|\bsuck|\bshit|\bgays?\b|\bblah|\bpuss(y|ies?)|\bawesome\b|\bpo{2,}p?\b|\bidiots?\b|\bretards?\b|\byolo\b|\b(my|ya|y?our|his|her) m(ama|om|other)|vaginas?\b|\bswag\b', term.lower()): #filter 11
+    if re.search(r'\bneuke?n?\b|\bwtf\b|\bass(hole|wipe|\b)|bitch|\bcocks?\b|\bdicks?\b|\bloo?ser|\bcunts?\b|dildo|douche|fuck|nigg(er|a)|pedophile|\bfag(g|\b)|penis|blowjob|\bcrap|\bballs|sluts?\b|\btrolo?l|whore|racist|\bsuck|\bshit|\bgays?\b|\bblah|\bpuss(y|ies?)|\bawesome\b|\bpo{2,}p?\b|\bidiots?\b|\bretards?\b|\byolo\b|\b(my|ya|y?our|his|her) m(ama|om|other)|vaginas?\b|\bswag\b', term.lower()): #filter 11
         if 'ballspieler' not in term.lower():
             return 'bad word'
 
-    if re.search('^(ahoj|h[ae]lo|hej|hi|hola|привет)$', term.lower()): #filter 47
+    if re.search(r'^(ahoj|h[ae]lo|hej|hi|hola|привет)$', term.lower()): #filter 47
         return 'hello!'
 
-    if re.search('(\w\w\w)\1{1,}', term):
+    if re.search(r'(\w\w\w)\1{1,}', term):
         if 'cantant' not in term.lower():
             return 'repetition'
 
-    if re.search('(..)\1{2,}', term):
+    if re.search(r'(..)\1{2,}', term):
         return 'repetition'
 
-    if re.search('(.)\1{3,}', term):
+    if re.search(r'(.)\1{3,}', term):
         return 'repetition'
 
     return  None
@@ -139,8 +139,8 @@ def edit_is_false_positive(qid:str, term:str, lang:str) -> bool:
         if not local_page.exists():
             return False
 
-        text = re.sub('\[\[[^\]]+\|', '', local_page.text)
-        text = re.sub('\[\[|\]\]', '', text)
+        text = re.sub(r'\[\[[^\]]+\|', '', local_page.text)
+        text = re.sub(r'\[\[|\]\]', '', text)
 
         if term in text:
             return True
@@ -156,7 +156,7 @@ def old_edits(text:str) -> str:
         if '| [[Q' not in line:
             continue
 
-        res = re.search('\[\[Q([0-9]*)\]\] (.*) <nowiki>(.*)</nowiki> \|\| (add|edit) (label|description|alias) \|\| (.*) \|\| (.*) \|\| (.*) \|\| (.*)', line)
+        res = re.search(r'\[\[Q([0-9]*)\]\] (.*) <nowiki>(.*)</nowiki> \|\| (add|edit) (label|description|alias) \|\| (.*) \|\| (.*) \|\| (.*) \|\| (.*)', line)
         if not res:
             continue
 
@@ -252,7 +252,7 @@ def new_edits(text:str) -> str:
     text += '|}'
 
     with open(TIMESTAMP_FILENAME, mode='w', encoding='utf8') as file_handle:
-        file_handle.write(re.sub('\:|\-|Z|T', '', timestamp))
+        file_handle.write(re.sub(r'\:|\-|Z|T', '', timestamp))
 
     return text
 

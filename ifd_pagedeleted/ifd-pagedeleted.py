@@ -60,7 +60,7 @@ def parse_revision(revision:dict[str, Any]) -> tuple[dict[str, Any], str]:
     if comment is None:
         raise ValueError('"comment" attribute is missing from revision')
 
-    res = re.search('clientsitelink-remove\:1\|\|(.*)wiki(.*) \*\/ (.*)', comment)
+    res = re.search(r'clientsitelink-remove\:1\|\|(.*)wiki(.*) \*\/ (.*)', comment)
     if not res:
         return {}, timestamp  # revision to be ignored
 

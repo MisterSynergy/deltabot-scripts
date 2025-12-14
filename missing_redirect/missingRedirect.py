@@ -94,7 +94,7 @@ def make_api_request(old_time:str, new_time:str, rccontinue:str) -> tuple[Option
     for revision in data.get('query', {}).get('recentchanges', {}):
         processed_timestamp = process_revision(revision)
 
-    rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue')
+    rccontinue = data.get('continue', {}).get('rccontinue')
     return rccontinue, processed_timestamp
 
 

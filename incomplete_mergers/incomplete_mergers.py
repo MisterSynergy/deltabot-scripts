@@ -274,10 +274,9 @@ def get_revisions(start_time:str, end_time:str) -> Generator[dict[str, Any], Non
 
             yield revision
 
-        if 'query-continue' not in data:
+        rccontinue = data.get('continue', {}).get('rccontinue')
+        if rccontinue is None:
             break
-
-        rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', '')
 
 
 def main():

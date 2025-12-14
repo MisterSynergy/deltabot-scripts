@@ -142,7 +142,7 @@ def query_new_revisions_from_api(old_time:str, rccontinue:str) -> tuple[list[dic
         if len(revision_to_add) > 0:
             revisions_to_add.append(revision_to_add)
 
-    rccontinue = data.get('query-continue', {}).get('recentchanges', {}).get('rccontinue', '')
+    rccontinue = data.get('continue', {}).get('rccontinue', '')
 
     return revisions_to_add, timestamp, rccontinue
 

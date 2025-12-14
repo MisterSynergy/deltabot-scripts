@@ -49,7 +49,7 @@ def get_qids_of_removed_sitelinks(qid:str) -> set[str]:
 
     for page_id in data.get('query', {}).get('pages', []):
         for revision in data.get('query', {}).get('pages', {}).get(page_id, {}).get('revisions', []):
-            matches = re.search('wbsetsitelink-remove\:1\|(.*)wiki \*\/ (.*)', revision.get('comment', ''))
+            matches = re.search(r'wbsetsitelink-remove\:1\|(.*)wiki \*\/ (.*)', revision.get('comment', ''))
             if not matches:
                 continue
 
@@ -268,7 +268,7 @@ def get_revisions(start_time:str, end_time:str) -> Generator[dict[str, Any], Non
         for revision in data.get('query', {}).get('recentchanges', {}):
             if 'comment' not in revision:
                 continue
-            matches = re.search('wbsetsitelink-remove\:1\|(.*)wiki \*\/ (.*)', revision.get('comment', ''))
+            matches = re.search(r'wbsetsitelink-remove\:1\|(.*)wiki \*\/ (.*)', revision.get('comment', ''))
             if not matches:
                 continue
 

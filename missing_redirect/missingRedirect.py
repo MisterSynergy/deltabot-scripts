@@ -56,7 +56,7 @@ def process_revision(revision:dict[str, Any]) -> Optional[str]:
     if revision_comment is None:
         return processed_timestamp
 
-    res = re.search('\/\* wbmergeitems-to:0\|\|(Q[0-9]+) \*\/', revision_comment)
+    res = re.search(r'\/\* wbmergeitems-to:0\|\|(Q[0-9]+) \*\/', revision_comment)
     if not res:
         return processed_timestamp
 

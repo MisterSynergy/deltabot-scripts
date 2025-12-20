@@ -86,7 +86,7 @@ def parseTemplate(text, templateName, parameterName):
         foo = text.split(u'{{'+templateName.lower())
     if len(foo) == 1:
         return ''
-    parts = re.split(u'(\{\{|\}\}|\||\=|\[\[|\]\])',foo[1]);
+    parts = re.split(r'(\{\{|\}\}|\||\=|\[\[|\]\])',foo[1])
     for m in parts[1:]:
         m = m.strip()
         if save == 1  and open == 1 and m == '|': break #end of value
@@ -106,7 +106,7 @@ def parseTemplateNum(text, templateName, parameterNum):
         foo = text.split(u'{{'+templateName.lower())
     if len(foo) != 2:
         return ''
-    parts = re.split(u'(\{\{|\}\}|\||\=|\[\[|\]\])', foo[1]);
+    parts = re.split(r'(\{\{|\}\}|\||\=|\[\[|\]\])', foo[1])
     cnt = 0
     for m in parts[2:]:
         if m == '}}':

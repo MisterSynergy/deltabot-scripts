@@ -25,9 +25,8 @@ header = '{{{{Constraint violations report|date={}|item count={}}}}}\n'
 
 
 def logwrite(text):
-    f1 = open(f'{expanduser("~")}/jobs/constraint_violations/constraintslog.dat', 'a')
-    f1.write(text)
-    f1.close()
+    with open(f'{expanduser("~")}/jobs/constraint_violations/constraintslog.dat', 'a') as file_handle:
+        file_handle.write(text)
 
 
 def requestquery(query, l=0):

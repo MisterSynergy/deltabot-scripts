@@ -57,7 +57,7 @@ def updateArchive(proposals):
             newText = ''
             look = False
             for line in archives[proposal['archive']]['text'].split('\n'):
-                if (re.match('==\s*done\s*==', line.lower()) and (proposal['note'] == 'done' or proposal['note'].isdigit())) or (re.match('==\s*not done\s*==', line.lower()) and not (proposal['note'] == 'not done' or proposal['note'].isdigit())):
+                if (re.match(r'==\s*done\s*==', line.lower()) and (proposal['note'] == 'done' or proposal['note'].isdigit())) or (re.match(r'==\s*not done\s*==', line.lower()) and not (proposal['note'] == 'not done' or proposal['note'].isdigit())):
                     look = True
                 if line.strip() == '|}' and look:
                     newText += u'{{{{PPArchive|{newname}|{proposer}|{startdate}|{closedate}|{note}}}}}\n'.format(**proposal)
@@ -86,7 +86,7 @@ def main():
     for category in categories:
         page = pywikibot.Page(site, 'Wikidata:Property_proposal/'+category)
         fo = page.get().split('</noinclude>')
-        proposals = re.findall('{{Wikidata:Property proposal/(.*?)}}', fo[1].replace('_', ' '), re.IGNORECASE)
+        proposals = re.findall(r'{{Wikidata:Property proposal/(.*?)}}', fo[1].replace('_', ' '), re.IGNORECASE)
         for proposal in proposals:
             try:
                 page2 = pywikibot.Page(site, 'Wikidata:Property proposal/'+proposal)
@@ -98,7 +98,7 @@ def main():
                 else:
                     newname = proposal
                 pptext = re.sub(r'(<!([^>]+)>)|\n', '', page2.get())
-                stati = re.findall('\|\s*status\s*=\s*([^\|\}]+)', pptext)
+                stati = re.findall(r'\|\s*status\s*=\s*([^\|\}]+)', pptext)
                 stati = list(map(str.strip, stati))
                 if not allClosed(stati):
                     continue

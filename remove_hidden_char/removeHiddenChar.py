@@ -17,7 +17,7 @@ cur.execute('SELECT CONVERT(rc_title USING utf8) AS rc_title, CONVERT(comment_te
 
 for row in cur.fetchall():
     try:
-        res = re.search('\[\[Property:(P\d+)\]\]', row.get('comment_text', ''))
+        res = re.search(r'\[\[Property:(P\d+)\]\]', row.get('comment_text', ''))
         if not res:
             continue
         p = res.group(1)

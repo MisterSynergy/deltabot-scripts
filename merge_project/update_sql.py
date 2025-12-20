@@ -29,7 +29,7 @@ def main() -> None:
         if line[0]=='#' or line[0]=='<':  # comment
             continue
 
-        res = re.search('([a-z_]+)\s+([a-z_]+)', line)
+        res = re.search(r'([a-z_]+)\s+([a-z_]+)', line)
         if not res:  # invalid entry
             continue
 

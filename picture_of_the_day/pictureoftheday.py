@@ -17,7 +17,7 @@ REPO_COMMONS = SITE_COMMONS.data_repository()
 POTD_TEMPLATE_QID = 'Q14334596'  # item for Template:POTD
 IMAGE_PID = 'P18'
 
-CLEANR = re.compile("<.*?>")
+CLEANR = re.compile(r"<.*?>")
 
 
 def add_image(image:str) -> None:
@@ -45,7 +45,7 @@ def main() -> None:
     page_content = page.get().replace('\n', '')
     clean_text = re.sub(CLEANR, '', page_content)
 
-    res = re.search('\{\{Potd filename\|(.*?)\|', clean_text)
+    res = re.search(r'\{\{Potd filename\|(.*?)\|', clean_text)
     if res:
         file_name = res.group(1).replace('_', ' ')
 

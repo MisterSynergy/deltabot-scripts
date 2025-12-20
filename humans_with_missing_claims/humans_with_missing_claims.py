@@ -189,7 +189,7 @@ def main() -> None:
         if line.startswith('#'):
             continue
 
-        if re.match('^P\d+$', line) is None:
+        if re.match(r'^P\d+$', line) is None:
             continue
 
         properties.append(line)

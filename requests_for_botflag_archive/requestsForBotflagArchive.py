@@ -41,7 +41,7 @@ def updateArchive(requests):
         newText = ''
         for line in archives[request['archive']]['text'].split('\n'):
             newText += line+'\n'
-            if (re.match('=\s*successful requests\s*=', line.lower()) and request['status'] == 'success') or (re.match('=\s*unsuccessful requests\s*=', line.lower()) and request['status'] != 'success'):
+            if (re.match(r'=\s*successful requests\s*=', line.lower()) and request['status'] == 'success') or (re.match(r'=\s*unsuccessful requests\s*=', line.lower()) and request['status'] != 'success'):
                 newText += '* [[Wikidata:Requests for permissions/Bot/' + request['name'].replace('_', ' ') + ']]\n'
                 archives[request['archive']]['count'] += 1
         archives[request['archive']]['text'] = newText.strip()
@@ -55,7 +55,7 @@ def main():
     toArchive = []
     page = pywikibot.Page(site, 'Wikidata:Requests for permissions/Bot')
     fo = page.get().split('</noinclude>')
-    requests = re.findall('{{Wikidata:Requests[\s_]for[\s_]permissions/Bot/(.*)}}', fo[1])
+    requests = re.findall(r'{{Wikidata:Requests[\s_]for[\s_]permissions/Bot/(.*)}}', fo[1])
     for request in requests:
         page2 = pywikibot.Page(site, 'Wikidata:Requests for permissions/Bot/' + request)
         if page2.isRedirectPage():

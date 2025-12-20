@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 import re
 from typing import Optional
 
@@ -15,7 +15,7 @@ SITE.login()
 REPO = SITE.data_repository()
 
 REPORT_PAGE = 'User:Pasleim/Vandalism'
-TIMESTAMP_FILENAME = f'{expanduser("~")}/jobs/vandalism_terms/vandalismTerms_time.dat'
+TIMESTAMP_FILENAME = Path.home() / 'jobs/vandalism_terms/vandalismTerms_time.dat'
 LATIN_LANGUAGES = ['af','ak','an','ang','ast','ay','az','bar','bcl','bi','bm','br','bs','ca','cbk-zam','ceb','ch','chm','cho','chy','co','crh-latn','cs','csb','cy','da','de','diq','dsb','ee','eml','en','eo','es','et','eu','ff','fi','fit','fj','fo','fr','frp','frr','fur','fy','ga','gd','gl','gn','gsw','gv','ha','haw','ho','hr','hsb','ht','hu','hz','id','ie','ig','ik','ilo','io','is','it','jbo','jv','kab','kg','ki','kj','kl','kr','ksh','ku','kw','la','lad','lb','lg','li','lij','lmo','ln','lt','lv','map-bms','mg','mh','mi','min','ms','mt','mus','mwl','na','nah','nan','nap','nb','nds','nds-nl','ng','nl','nn','nov','nrm','nv','ny','oc','om','pag','pam','pap','pcd','pdc','pih','pl','pms','pt','qu','rm','rn','ro','roa-tara','rup','rw','sc','scn','sco','se','sg','sgs','sk','sl','sm','sn','so','sq','sr-el','ss','st','stq','su','sv','sw','szl','tet','tk','tl','tn','to','tpi','tr','ts','tum','tw','ty','uz','ve','vec','vi','vls','vo','vro','wa','war','wo','xh','yo','za','zea','zu']
 
 TEXT_TEMPLATE = """The following unpatrolled items might be vandalised. Please either revert the edits or mark them as patrolled.

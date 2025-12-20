@@ -5,7 +5,7 @@
 import json
 from json.decoder import JSONDecodeError
 import operator
-from os.path import expanduser
+from pathlib import Path
 from typing import Generator
 
 import requests
@@ -13,7 +13,7 @@ import pywikibot as pwb
 
 
 def read_input() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int], dict[str, str]]:
-    with open(f'{expanduser("~")}/jobs/implausible_coordinates/implausible_coordinates_borders.json', mode='r', encoding='utf8') as file_handle:
+    with open(Path.home() / 'jobs/implausible_coordinates/implausible_coordinates_borders.json', mode='r', encoding='utf8') as file_handle:
        data = json.load(file_handle)
 
     north:dict[str, int] = data.get('north', {})

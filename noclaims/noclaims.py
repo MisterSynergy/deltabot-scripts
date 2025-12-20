@@ -4,7 +4,7 @@
 
 from dataclasses import dataclass, field
 from json.decoder import JSONDecodeError
-from os.path import expanduser
+from pathlib import Path
 from time import sleep, strftime
 from typing import Generator
 
@@ -24,7 +24,7 @@ WDQS_USERAGENT = f'{requests.utils.default_user_agent()} (noclaims.py via User:D
 WD = 'http://www.wikidata.org/entity/'
 
 # Wikidata replica config
-DB_DEFAULT_FILE = f'{expanduser("~")}/replica.my.cnf'
+DB_DEFAULT_FILE = Path.home() / 'replica.my.cnf'
 WIKIDATA_REPLICA_HOST = 'wikidatawiki.analytics.db.svc.wikimedia.cloud'
 WIKIDATA_REPLICA_DB = 'wikidatawiki_p'
 
@@ -171,7 +171,7 @@ class Replica:
         self.connection = mariadb.connect(
             host=host,
             database=dbname,
-            default_file=DB_DEFAULT_FILE,
+            default_file=str(DB_DEFAULT_FILE),
         )
         self.cursor = self.connection.cursor(dictionary=True)
 

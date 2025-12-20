@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 from time import strftime
 
 import mariadb
@@ -94,7 +94,7 @@ def main() -> None:
     db = mariadb.connect(
         host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
-        default_file=f'{expanduser("~")}/replica.my.cnf',
+        default_file=str(Path.home() / 'replica.my.cnf'),
     )
 
     report1 = make_report(db, QUERY_1)

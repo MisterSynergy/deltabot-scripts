@@ -3,7 +3,7 @@
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
 from json.decoder import JSONDecodeError
-from os.path import expanduser
+from pathlib import Path
 import re
 import sys
 from time import strftime
@@ -16,8 +16,8 @@ import requests
 
 SITE = pwb.Site('wikidata', 'wikidata')
 
-LOGFILE = f'{expanduser("~")}/logs/merge-project-log.dat'
-DB_DEFAULT_FILE = f'{expanduser("~")}/replica.my.cnf'
+LOGFILE = Path.home() / ' logs/merge-project-log.dat'
+DB_DEFAULT_FILE = Path.home() / 'replica.my.cnf'
 
 TOOL_HOST = 'tools.db.svc.wikimedia.cloud'
 TOOL_DB = 's53100__merge_status'
@@ -39,7 +39,7 @@ class Replica:
         self.connection = mariadb.connect(
             host=host,
             database=dbname,
-            default_file=DB_DEFAULT_FILE,
+            default_file=str(DB_DEFAULT_FILE),
         )
         self.cursor = self.connection.cursor(dictionary=True)
 

@@ -4,7 +4,7 @@
 
 #providing a list with unique violations, the script looks for merge candidates. Preferable, the list should only contains items from the same namespace
 
-from os.path import expanduser
+from pathlib import Path
 import re
 from typing import Generator
 
@@ -108,7 +108,7 @@ def main() -> None:
     db = mariadb.connect(
         host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
-        default_file=f'{expanduser("~")}/replica.my.cnf'
+        default_file=str(Path.home() / 'replica.my.cnf'),
     )
 
     whitelist = get_whitelist()

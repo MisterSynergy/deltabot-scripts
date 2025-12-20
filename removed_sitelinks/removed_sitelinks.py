@@ -3,7 +3,7 @@
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
 from datetime import datetime
-from os.path import expanduser
+from pathlib import Path
 import re
 from time import strftime
 
@@ -40,7 +40,7 @@ def make_report(dbname:str) -> str:
     db = mariadb.connect(
         host=f'{dbname}.analytics.db.svc.wikimedia.cloud',
         database=f'{dbname}_p',
-        default_file=f'{expanduser("~")}/replica.my.cnf',
+        default_file=str(Path.home() / 'replica.my.cnf'),
     )
     cur = db.cursor(dictionary=True)
 

@@ -2,13 +2,13 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 
 import mariadb
 import pywikibot as pwb
 
 
-DB_DEFAULT_FILE = f'{expanduser("~")}/replica.my.cnf'
+DB_DEFAULT_FILE = Path.home() / 'replica.my.cnf'
 WIKIDATA_REPLICA_HOST = 'wikidatawiki.analytics.db.svc.wikimedia.cloud'
 WIKIDATA_REPLICA_DB = 'wikidatawiki_p'
 
@@ -21,7 +21,7 @@ class Replica:
         self.connection = mariadb.connect(
             host=host,
             database=dbname,
-            default_file=DB_DEFAULT_FILE,
+            default_file=str(DB_DEFAULT_FILE),
         )
         self.cursor = self.connection.cursor(dictionary=True)
 

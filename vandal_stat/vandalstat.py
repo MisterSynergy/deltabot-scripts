@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 
 from datetime import date, timedelta
-from os.path import expanduser
+from pathlib import Path
 
 import mariadb
 import pywikibot as pwb
@@ -13,7 +13,7 @@ class Replica:
         self.connection = mariadb.connect(
             host='wikidatawiki.analytics.db.svc.wikimedia.cloud',
             database='wikidatawiki_p',
-            default_file=f'{expanduser("~")}/replica.my.cnf',
+            default_file=str(Path.home() / 'replica.my.cnf'),
         )
         self.cursor = self.connection.cursor(dictionary=True)
 

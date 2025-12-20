@@ -9,7 +9,7 @@
 # CC0 Public Domain Dedication.
 
 from __future__ import unicode_literals
-from os.path import expanduser
+from pathlib import Path
 import requests
 import time
 import datetime
@@ -25,7 +25,7 @@ header = '{{{{Constraint violations report|date={}|item count={}}}}}\n'
 
 
 def logwrite(text):
-    with open(f'{expanduser("~")}/jobs/constraint_violations/constraintslog.dat', 'a') as file_handle:
+    with open(Path.home() / 'jobs/constraint_violations/constraintslog.dat', 'a') as file_handle:
         file_handle.write(text)
 
 

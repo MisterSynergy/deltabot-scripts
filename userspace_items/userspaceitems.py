@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 #licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 from time import strftime
 
 import mariadb
@@ -11,7 +11,7 @@ import pywikibot
 
 SITE = pywikibot.Site('wikidata', 'wikidata')
 REPORT_PAGE = 'Wikidata:Database reports/User pages'
-USERSPACE_NAMES_FILE = f'{expanduser("~")}/jobs/userspace_items/userspace_names.dat'
+USERSPACE_NAMES_FILE = Path.home() / 'jobs/userspace_items/userspace_names.dat'
 
 HEADER = f"""A list of pages with links to userspace. Update: <onlyinclude>{strftime('%Y-%m-%d %H:%M (%Z)')}</onlyinclude>
 
@@ -37,7 +37,7 @@ WHERE
 DB_PARAMS = {
     'host' : 'wikidatawiki.analytics.db.svc.wikimedia.cloud',
     'database' : 'wikidatawiki_p',
-    'default_file' : f'{expanduser("~")}/replica.my.cnf',
+    'default_file' : str(Path.home() / 'replica.my.cnf'),
 }
 
 WHITELIST = [  # page titles containing any of these strings are acceptable

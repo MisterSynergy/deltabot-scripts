@@ -4,7 +4,7 @@
 
 from collections import Counter
 import logging
-from os.path import expanduser
+from pathlib import Path
 from typing import Any, Optional
 
 import mariadb
@@ -111,7 +111,7 @@ TASKS = [
 ]
 
 BRACKET_TERMS:list[str]
-BRACKET_TERMS_FILE = f'{expanduser("~")}/jobs/new_disambiguation_pages/new_disambiguation_pages_terms.txt'
+BRACKET_TERMS_FILE = Path.home() / 'jobs/new_disambiguation_pages/new_disambiguation_pages_terms.txt'
 
 DAB_ITEMS = [
     'Q4167410',
@@ -169,7 +169,7 @@ def get_database_cursor():
     db = mariadb.connect(
         host='termstore.wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
-        default_file=f'{expanduser("~")}/replica.my.cnf'
+        default_file=str(Path.home() / 'replica.my.cnf'),
     )
     cur = db.cursor(dictionary=True)
 

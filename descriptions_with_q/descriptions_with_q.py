@@ -5,7 +5,7 @@
 import mariadb
 import time
 import pywikibot
-from os.path import expanduser
+from pathlib import Path
 
 SITE = pywikibot.Site('wikidata', 'wikidata')
 
@@ -29,7 +29,7 @@ def make_report() -> str:
     db = mariadb.connect(
         host='termstore.wikidatawiki.analytics.db.svc.wikimedia.cloud',
         database='wikidatawiki_p',
-        default_file=f'{expanduser("~")}/replica.my.cnf',
+        default_file=str(Path.home() / 'replica.my.cnf'),
     )
     cur = db.cursor(dictionary=True)
 

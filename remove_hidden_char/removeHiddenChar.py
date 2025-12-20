@@ -2,7 +2,7 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
-from os.path import expanduser
+from pathlib import Path
 import mariadb
 import pywikibot
 import re
@@ -10,7 +10,7 @@ import re
 site = pywikibot.Site('wikidata', 'wikidata')
 repo = site.data_repository()
 
-db = mariadb.connect(host='wikidatawiki.analytics.db.svc.wikimedia.cloud', database='wikidatawiki_p', default_file=f'{expanduser("~")}/replica.my.cnf')
+db = mariadb.connect(host='wikidatawiki.analytics.db.svc.wikimedia.cloud', database='wikidatawiki_p', default_file=str(Path.home() / 'replica.my.cnf'))
 
 cur = db.cursor(dictionary=True)
 cur.execute('SELECT CONVERT(rc_title USING utf8) AS rc_title, CONVERT(comment_text USING utf8) AS comment_text FROM recentchanges JOIN comment_recentchanges ON rc_comment_id=comment_id WHERE rc_namespace=0 AND HEX(comment_text) LIKE "%E2808F";')

@@ -5,7 +5,7 @@ import requests
 import pywikibot
 import json
 from stdnum import isbn
-from os.path import expanduser
+from pathlib import Path
 from time import strftime, sleep
 
 site = pywikibot.Site('wikidata', 'wikidata')
@@ -14,7 +14,7 @@ siteCommons = pywikibot.Site('commons', 'commons')
 
 WDQS_USER_AGENT = f'{requests.utils.default_user_agent()}(fix_claims.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
 
-with open(f'{expanduser("~")}/jobs/fix_claims/categoryPrefix', encoding='utf-8') as f:
+with open(Path.home() / 'jobs/fix_claims/categoryPrefix', encoding='utf-8') as f:
     exec(f.read())
 
 whitelist = ['Q4115189', 'Q13406268', 'Q15397819']
@@ -668,7 +668,7 @@ def main():
     r = requests.get('https://www.wikidata.org/wiki/User:DeltaBot/fixClaims/jobs?action=raw')
     jobs = r.json()
     if nodone_file is False:
-        done = json.load(open(f'{expanduser("~")}/jobs/fix_claims/done.json', encoding='utf-8'))
+        done = json.load(open(Path.home() / 'jobs/fix_claims/done.json', encoding='utf-8'))
     else:
         done = {}
     notdone = {}
@@ -692,7 +692,7 @@ def main():
         print(f'--> {len(done.get(job["name"], []))} done, {len(notdone.get(job["name"], []))} not done\n')
         sleep(1)
     if nodone_file is False:
-        with open(f'{expanduser("~")}/jobs/fix_claims/done.json', 'w', encoding='utf-8') as file_handle:
+        with open(Path.home() / 'jobs/fix_claims/done.json', 'w', encoding='utf-8') as file_handle:
             file_handle.write(json.dumps(done, ensure_ascii=False))
 
     createMaintenanceLists(notdone)

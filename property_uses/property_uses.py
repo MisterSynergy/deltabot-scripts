@@ -2,8 +2,10 @@
 # -*- coding: UTF-8 -*-
 # licensed under CC-Zero: https://creativecommons.org/publicdomain/zero/1.0
 
+from collections.abc import Generator
 from json import JSONDecodeError
 from time import sleep, strftime
+from typing import Any
 
 import pywikibot as pwb
 import requests
@@ -12,57 +14,99 @@ from requests.utils import default_user_agent
 
 SITE = pwb.Site('wikidata', 'wikidata')
 
-LDF_ENDPOINTS = [
-    'https://query.wikidata.org/bigdata/ldf',
-    'https://query-scholarly.wikidata.org/bigdata/ldf',
+WDQS_ENDPOINTS = [
+    'https://query.wikidata.org/sparql',
+    'https://query-scholarly.wikidata.org/sparql',
 ]
-LDF_USER_AGENT =f'{default_user_agent()} (property_uses.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
-LDF_SLEEP = 2  # seconds between requests, in order to avoid being blocked at the endpoint
+WDQS_USER_AGENT =f'{default_user_agent()} (property_uses.py via User:DeltaBot at Wikidata; mailto:tools.deltabot@toolforge.org)'
+WDQS_SLEEP = 2  # seconds between requests, in order to avoid being blocked at the endpoint
+WD = 'http://www.wikidata.org/entity/'
+
+# credits to User:Infrastruktur for assembling this query
+QUERY_MAINGRAPH = """# Property uses. Caveat emptor: Completely relies on finicky non-portable Blazegraph optimization.
+SELECT ?prop (SAMPLE(?claim_) AS ?claim) (SAMPLE(?qualifier_) AS ?qualifier) (SAMPLE(?reference_) AS ?reference) WITH {
+  SELECT ?p (COUNT(?s) AS ?count) WHERE {
+    ?s ?p ?o
+  } GROUP BY ?p
+} AS %subquery WHERE {
+  { 
+    SELECT ?prop (?count AS ?claim_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      ?prop wikibase:claim ?p .
+    }
+  } UNION {
+    SELECT ?prop (?count AS ?qualifier_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      ?prop wikibase:qualifier ?p .
+    }
+  } UNION {
+    SELECT ?prop (?count AS ?reference_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      ?prop wikibase:reference ?p .
+    }
+  }
+} GROUP BY ?prop"""
+
+QUERY_SUBGRAPH = """# Property uses. Caveat emptor: Completely relies on finicky non-portable Blazegraph optimization.
+SELECT ?prop (SAMPLE(?claim_) AS ?claim) (SAMPLE(?qualifier_) AS ?qualifier) (SAMPLE(?reference_) AS ?reference) WITH {
+  SELECT ?p (COUNT(?s) AS ?count) WHERE {
+    ?s ?p ?o
+  } GROUP BY ?p
+} AS %subquery WHERE {
+  { 
+    SELECT ?prop (?count AS ?claim_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      SERVICE <https://query.wikidata.org/sparql> {
+        ?prop wikibase:claim ?p .
+      }
+    }
+  }
+  UNION
+  {
+    SELECT ?prop (?count AS ?qualifier_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      SERVICE <https://query.wikidata.org/sparql> {
+        ?prop wikibase:qualifier ?p .
+      }
+    }
+  }
+  UNION
+  {
+    SELECT ?prop (?count AS ?reference_) WHERE {
+      hint:SubQuery hint:optimizer 'None'.
+      INCLUDE %subquery .
+      SERVICE <https://query.wikidata.org/sparql> {
+        ?prop wikibase:reference ?p .
+      }
+    }
+  }
+} GROUP BY ?prop"""
 
 
-def query_uses(ldf_endpoint:str, predicate:str, query_credit:int=3) -> int:
-    response = requests.get(
-        url=ldf_endpoint,
-        params={
-            'predicate' : predicate,
+def query_wdqs(wdqs_endpoint:str, query:str) -> Generator[dict[str, Any], None, None]:
+    response = requests.post(
+        url=wdqs_endpoint,
+        data={
+            'query' : query,
         },
         headers={
-            'User-Agent' : LDF_USER_AGENT,
-            'Accept' : 'application/ld+json',
+            'Accept' : 'application/sparql-results+json',
+            'User-Agent': WDQS_USER_AGENT,
         }
     )
-    sleep(LDF_SLEEP)
 
     try:
         data = response.json()
     except JSONDecodeError as exception:
-        if response.status_code == 429:  # we are likely running too fast
-            query_credit -= 1
-            if query_credit > 0:
-                sleep(120)
-                return query_uses(ldf_endpoint, predicate, query_credit)
+        raise RuntimeError(f'Cannot parse WDQS response as JSON; HTTP status {response.status_code}; query time {response.elapsed.total_seconds:.2f} sec') from exception
 
-        raise RuntimeError(f'Cannot parse LDF endpoint response body as JSON for predicate "{predicate}"; HTTP status: {response.status_code}; query time: {response.elapsed.total_seconds():.2f} sec') from exception
-
-    for dct in data.get('@graph', []):
-        if 'void:triples' not in dct:
-            continue
-
-        return int(dct['void:triples'])
-
-    raise RuntimeError('Not triple count found in JSON response')
-
-
-def query_mainsnak_uses(ldf_endpoint:str, prop:str) -> int:
-    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/{prop}')
-
-
-def query_qualifier_uses(ldf_endpoint:str, prop:str) -> int:
-    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/qualifier/{prop}')
-
-
-def query_reference_uses(ldf_endpoint:str, prop:str) -> int:
-    return query_uses(ldf_endpoint, f'http://www.wikidata.org/prop/reference/{prop}')
+    for row in data.get('results', {}).get('bindings', []):
+        yield row
 
 
 def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]:
@@ -71,46 +115,34 @@ def collect_data() -> tuple[dict[str, int], dict[str, int], dict[str, int], dict
     qualifiers:dict[str, int] = {}
     references:dict[str, int] = {}
 
-    # collect data
-    apcontinue = ''
-    while True:
-        payload = {
-            'action' : 'query',
-            'list' : 'allpages',
-            'apnamespace' : '120',
-            'aplimit' : 'max',
-            'apcontinue' : apcontinue,
-            'format' : 'json',
-        }
-        response = requests.get('https://www.wikidata.org/w/api.php', params=payload)
-        data = response.json()
-        for m in data.get('query', {}).get('allpages', {}):
-            prop = m.get('title', '')[len('Property:'):]
+    for wdqs_endpoint in WDQS_ENDPOINTS:
+        if wdqs_endpoint == 'https://query.wikidata.org/sparql':
+            query = QUERY_MAINGRAPH
+        else:
+            query = QUERY_SUBGRAPH
 
-            total[prop] = 0
-            mainsnak[prop] = 0
-            qualifiers[prop] = 0
-            references[prop] = 0
+        for row in query_wdqs(wdqs_endpoint, query):
+            prop = row.get('prop', {}).get('value', '').replace(WD, '')
+            mainsnak_count = int(row.get('claim', {}).get('value', 0))
+            qualifier_count = int(row.get('qualifier', {}).get('value', 0))
+            reference_count = int(row.get('reference', {}).get('value', 0))
 
-            for ldf_endpoint in LDF_ENDPOINTS:
-                mainsnak_count = query_mainsnak_uses(ldf_endpoint, prop)
-                total[prop] += mainsnak_count
-                mainsnak[prop] += mainsnak_count
+            if prop not in total:
+                total[prop] = 0
+                mainsnak[prop] = 0
+                qualifiers[prop] = 0
+                references[prop] = 0
 
-                qualifier_count = query_qualifier_uses(ldf_endpoint, prop)
-                total[prop] += qualifier_count
-                qualifiers[prop] += qualifier_count
+            total[prop] += mainsnak_count
+            mainsnak[prop] += mainsnak_count
 
-                reference_count = query_reference_uses(ldf_endpoint, prop)
-                total[prop] += reference_count
-                references[prop] += reference_count
+            total[prop] += qualifier_count
+            qualifiers[prop] += qualifier_count
 
-            print(strftime('%Y-%m-%d, %H:%M:%S'), prop, mainsnak_count, qualifier_count, reference_count, total[prop])
+            total[prop] += reference_count
+            references[prop] += reference_count
 
-        if 'continue' not in data:
-            break
-
-        apcontinue = data.get('continue', {}).get('apcontinue', '')
+        sleep(WDQS_SLEEP)
 
     return total, mainsnak, qualifiers, references
 

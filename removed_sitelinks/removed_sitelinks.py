@@ -57,8 +57,7 @@ FROM
             JOIN actor_recentchanges ON rc_actor=actor_id
         LEFT JOIN page_props ON page_id=pp_page AND pp_propname='wikibase_item'
 WHERE
-    rc_type=5
-    AND rc_source='wb'
+    rc_source='wb'
     AND page_namespace=0
     AND page_is_redirect=0
     AND pp_page IS NULL

@@ -230,22 +230,23 @@ def query_for_report(year:int) -> list[tuple[str, list[str], datetime]]:
 
         try:
             results_gen = query_petscan(payload)
+
+            for row in results_gen:
+                if row.qid not in results:
+                    results[row.qid] = {
+                        'wiki_list' : [],
+                        'touch_timestamp' : None,
+                    }
+
+                results[row.qid]['wiki_list'].append(project_code)
+                if results[row.qid]['touch_timestamp'] is None:
+                    results[row.qid]['touch_timestamp'] = row.page_touched
+                else:
+                    results[row.qid]['touch_timestamp'] = min(results[row.qid]['touch_timestamp'], row.page_touched)
+
         except RuntimeError as exception:
             print(exception)
             continue
-
-        for row in results_gen:
-            if row.qid not in results:
-                results[row.qid] = {
-                    'wiki_list' : [],
-                    'touch_timestamp' : None,
-                }
-
-            results[row.qid]['wiki_list'].append(project_code)
-            if results[row.qid]['touch_timestamp'] is None:
-                results[row.qid]['touch_timestamp'] = row.page_touched
-            else:
-                results[row.qid]['touch_timestamp'] = min(results[row.qid]['touch_timestamp'], row.page_touched)
 
     return_results:list[tuple[str, list[str], datetime]] = []
     for qid, dct in results.items():

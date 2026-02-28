@@ -16,7 +16,7 @@ import requests
 
 SITE = pwb.Site('wikidata', 'wikidata')
 
-LOGFILE = Path.home() / ' logs/merge-project-log.dat'
+LOGFILE = Path.home() / 'logs/merge-project-log.dat'
 DB_DEFAULT_FILE = Path.home() / 'replica.my.cnf'
 
 TOOL_HOST = 'tools.db.svc.wikimedia.cloud'

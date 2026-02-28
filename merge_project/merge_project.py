@@ -364,9 +364,12 @@ def load_whitelist_from_sparql() -> list[list[int]]:
     whitelist:list[list[int]] = []
 
     for prop in WHITELIST_PROPERTIES:
-        for row in query_wdqs(f'SELECT ?item ?item2 WHERE {{ ?item wdt:{prop} ?item2 . MINUS {{ ?item rdf:type wikibase:Property }} MINUS {{ ?item rdf:type ontolex:LexicalEntry }} }}'):
+        for row in query_wdqs(f'SELECT ?item ?item2 WHERE {{ ?item wdt:{prop} ?item2 }}'):
+            qid_1 = row.get('item', {}).get('value', '')
+            if not qid_1.startswith(WD_NUM):
+                continue
             try:
-                qid_num_1 = int(row.get('item', {}).get('value', '').replace(WD_NUM, ''))
+                qid_num_1 = int(qid_1.replace(WD_NUM, ''))
                 qid_num_2 = int(row.get('item2', {}).get('value', '').replace(WD_NUM, ''))
             except ValueError:  # avoid issues with somevalue results and so on
                 continue

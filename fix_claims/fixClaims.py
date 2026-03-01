@@ -489,14 +489,15 @@ def constraintValueCheck(value, job):
 
 
 def check_item(item, constraint):
-    item.get()
-    if not constraint['p'] in item.claims:
+    if constraint['p'] not in item.claims:
         return False
     if 'values' in constraint:
         if isinstance(constraint['values'], str):
             constraint['values'] = [constraint['values']]
-        if not item.claims[constraint['p']][0].getTarget().getID() in constraint['values']:
-            #TODO: don't check only first claim in statement
+        if not any(
+            claim.getTarget().getID() in constraint['values']
+            for claim in item.claims[constraint['p']]
+        ):
             return False
     return True
 

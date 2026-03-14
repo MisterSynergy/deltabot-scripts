@@ -44,13 +44,14 @@ def make_report(project:str) -> None:
     text = f'Many wikipedia have these articles. Please create these articles in [[:{project}:|{project} wikipedia]]. Update: <onlyinclude>{strftime("%Y-%m-%d %H:%M (%Z)")}</onlyinclude>\n'
     cnt = 0
 
-    query = f"""SELECT ?item ?cnt WHERE {{
-    {{
-        SELECT ?item (COUNT(*) AS ?cnt) WHERE {{
-            ?item wdt:P106 wd:Q937857; ^schema:about ?article
-        }} GROUP BY ?item HAVING(?cnt>=5) ORDER BY DESC(?cnt)
-    }}
-    FILTER NOT EXISTS {{ ?item ^schema:about/schema:isPartOf <https://{project}.wikipedia.org/> }}
+    query = f"""SELECT ?item ?cnt WITH {{
+  SELECT ?item ?cnt WHERE {{
+    ?item wdt:P106 wd:Q937857; wikibase:sitelinks ?cnt .
+    FILTER(?cnt >= 10) .
+  }}
+}} AS %subquery WHERE {{
+  INCLUDE %subquery .
+  FILTER NOT EXISTS {{ ?item ^schema:about/schema:isPartOf <https://{project}.wikipedia.org/> }}
 }} ORDER BY DESC(?cnt) LIMIT 100"""
 
     try:

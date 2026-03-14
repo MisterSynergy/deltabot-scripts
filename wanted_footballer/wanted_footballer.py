@@ -55,18 +55,17 @@ def make_report(project:str) -> None:
 }} ORDER BY DESC(?cnt) LIMIT 100"""
 
     try:
-        result = query_wdqs(query)
+        for row in query_wdqs(query):
+            qid = row.get('item', {}).get('value', '').replace(WD, '')
+
+            if row.get('cnt', {}).get('value', 0) != cnt:
+                cnt = row.get('cnt', {}).get('value', 0)
+                text += f'\n== {cnt} wikipedia ==\n'
+            text += f'*{{{{Q|{qid}}}}}\n'
     except RuntimeError:
         print(f'{strftime("%Y-%m-%d, %H:%M:%S")}: omit project "{project}" due to query timeout')
         return
 
-    for row in result:
-        qid = row.get('item', {}).get('value', '').replace(WD, '')
-        
-        if row.get('cnt', {}).get('value', 0) != cnt:
-            cnt = row.get('cnt', {}).get('value', 0)
-            text += f'\n== {cnt} wikipedia ==\n'
-        text += f'*{{{{Q|{qid}}}}}\n'
     text += '\n[[Category:WikiProject Association football/Wanted footballers]]'
 
     #write to wikidata

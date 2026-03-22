@@ -311,8 +311,9 @@ def create_new_item(site:str, title:str, title_unformatted:str, language:str, de
     entity_data = get_entity_data(site, title, title_unformatted, language, description, type_qid)
 
     new_item = pwb.ItemPage(REPO)
+    sitelink = pwb.SiteLink(title_unformatted, site)
     try:
-        new_item.editEntity(data=entity_data)
+        new_item.editEntity(data=entity_data, summary=f'create disambiguation item for {sitelink.astext(REPO)}')
     except pwb.exceptions.OtherPageSaveError as exception:
         logging.warning(f'Cannot create new item with sitelink "{title}" for project {site} (language={language}, description="{description}", type_qid={type_qid}) due to exception {exception}')
         return
@@ -328,12 +329,8 @@ def add_sitelink_to_existing_item(qid:str, site:str, title:str) -> bool:
         logging.info(f'Tried to add "{title}" for project {site} to most suitable item page {qid}, but sitelink is already occupied by "{item.sitelinks[site].title}"')
         return False
 
-    item.setSitelink(
-        {
-            'site': site,
-            'title': title,
-        }
-    )
+    sitelink = pwb.SiteLink(title, site)
+    item.setSitelink(sitelink, summary=f'add {sitelink.astext(REPO)}')
 
     logging.info(f'Added sitelink "{title}" for project {site} to item page {qid}')
 

@@ -233,24 +233,34 @@ def action_changeQualifierProperty(item, job):
             continue
         if job['pOld'] not in m['qualifiers']:
             continue
-        if job['pNew'] not in m['qualifiers']:
-            m['qualifiers'][job['pNew']] = []
-        for x in m['qualifiers'][job['pOld']]:
+
+        remove = set()
+        for i, x in enumerate(m['qualifiers'][job['pOld']]):
             qual1 = pywikibot.Claim.qualifierFromJSON(repo, x)
+            if 'constraintvalue' in job:
+                if not constraintValueCheck(qual1.getTarget(), job):
+                    continue
             x['hash'] = ''
             x['property'] = job['pNew']
-            add = True
-            for qual2 in (pywikibot.Claim.qualifierFromJSON(repo, y) for y in m['qualifiers'][job['pNew']]):
-                if str(qual1.getTarget()) == str(qual2.getTarget()):
-                    add = False
-                    break
-            if add:
-                m['qualifiers'][job['pNew']].append(x)
-        del m['qualifiers'][job['pOld']]
-        if job['pNew'] in m['qualifiers-order']:
+            remove.add(i)
+            if not any(
+                str(qual1.getTarget()) == str(qual2.getTarget())
+                for qual2 in (pywikibot.Claim.qualifierFromJSON(repo, y) for y in m['qualifiers'][job['pNew']])
+            ):
+                m['qualifiers'].setdefault(job['pNew'], []).append(x)
+
+        m['qualifiers'][job['pOld']] = [qual for i, qual in enumerate(m['qualifiers'][job['pOld']]) if i not in remove]
+        if m['qualifiers'][job['pOld']] == []:
+            del m['qualifiers'][job['pOld']]
+
+        remove_old = (job['pOld'] not in m['qualifiers'] and job['pOld'] in m['qualifiers-order'])
+        add_new = (job['pNew'] in m['qualifiers'] and job['pNew'] not in m['qualifiers-order'])
+        if add_new and remove_old:
+            m['qualifiers-order'] = [job['pNew'] if w == job['pOld'] else w for w in m['qualifiers-order']]
+        elif add_new:
+            m['qualifiers-order'].append(job['pNew'])
+        elif remove_old:
             m['qualifiers-order'].remove(job['pOld'])
-        else:
-            m['qualifiers-order'] = [job['pNew'] if w == job['pNew'] else w for w in m['qualifiers-order']]
         mydata = {}
         mydata['claims'] = [m]
         item.editEntity(mydata, summary=u'change qualifier [[Property:'+job['pOld']+']] -> [[Property:'+job['pNew']+']]')

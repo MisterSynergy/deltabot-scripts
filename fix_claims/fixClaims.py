@@ -128,7 +128,7 @@ def action_normalize(item, job):
             claim.changeTarget(target)
 
 
-#correct wrong authority identfiers with the value from VIAF
+#correct wrong authority identifiers with the value from VIAF
 def action_viaf(item, job):
     for m in item.claims['P214']:
         viaf  = m.getTarget()
@@ -176,8 +176,12 @@ def action_inverse(item, job):
         if not target.exists():
             continue
         target.get()
+        if 'constraintvalue' in job:
+            if not constraintCheck(target, job['constraintvalue']):
+                continue
+        # TODO: remove when eliminated from the jobs
         if 'constrainttarget' in job:
-            if not constraintTargetCheck(target, job):
+            if not constraintCheck(target, job['constrainttarget']):
                 continue
         ok = True
         for reference in claim.sources:
@@ -208,7 +212,7 @@ def action_changeProperty(item, job):
         return 0
     for claim in item.claims[job['pOld']]:
         if 'constraintvalue' in job:
-            if not constraintValueCheck(claim.getTarget(), job):
+            if not constraintCheck(claim.getTarget(), job['constraintvalue']):
                 continue
         m = claim.toJSON()
         mydata = {}
@@ -284,8 +288,12 @@ def action_addValueClaim(item, job):
         if not target.exists():
             continue
         target.get()
+        if 'constraintvalue' in job:
+            if not constraintCheck(target, job['constraintvalue']):
+                continue
+        # TODO: remove when eliminated from the jobs
         if 'constrainttarget' in job:
-            if not constraintTargetCheck(target, job):
+            if not constraintCheck(target, job['constrainttarget']):
                 continue
         if job['pNewT'] not in target.claims:
             claimNew = pywikibot.Claim(repo, job['pNewT'])
@@ -313,7 +321,7 @@ def action_changeValue(item, job):
 def action_removeStatement(item, job):
     for claim in item.claims[job['p']]:
         if 'constraintvalue' in job:
-            if not constraintValueCheck(claim.getTarget(), job):
+            if not constraintCheck(claim.getTarget(), job['constraintvalue']):
                 continue
         item.removeClaims(claim, summary=job['summary'])
 
@@ -464,26 +472,10 @@ def action_appendSource(item, job):
 #########################
 
 
-def constraintTargetCheck(item, job):
-    for constraint in job['constrainttarget']:
+def constraintCheck(item, constraints):
+    for constraint in constraints:
         check = globals()['check_' + constraint['type']]
         if not check(item, constraint):
-            return False
-    return True
-
-
-def constraintCheck(item, job):
-    for constraint in job['constraint']:
-        check = globals()['check_' + constraint['type']]
-        if not check(item, constraint):
-            return False
-    return True
-
-
-def constraintValueCheck(value, job):
-    for constraint in job['constraintvalue']:
-        check = globals()['check_' + constraint['type']]
-        if not check(value, constraint):
             return False
     return True
 
@@ -653,7 +645,7 @@ def proceedOneCandidate(q, job):
     item.get()
     #checks
     if 'constraint' in job:
-        if not constraintCheck(item, job):
+        if not constraintCheck(item, job['constraint']):
             return 0
     #actions
     action = globals()['action_' + job['action']]
